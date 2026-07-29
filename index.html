@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh}
@@ -19,8 +20,6 @@
   .loginbox h1{font-size:21px;font-weight:900;margin-bottom:6px}
   .loginbox p{font-size:13px;color:#64748b;margin-bottom:22px}
   input[type=password],input[type=text],input[type=date],textarea{width:100%;padding:13px 15px;font-size:15px;border:2px solid #e2e8f0;border-radius:12px;outline:none;font-family:inherit;transition:border-color .15s}
-  #invShop{width:100%;padding:13px 15px;font-size:15px;border:2px solid #e2e8f0;border-radius:12px;outline:none;font-family:inherit;background:#fff;font-weight:600;cursor:pointer;transition:border-color .15s}
-  #invShop:focus{border-color:#2563eb}
   input:focus,textarea:focus{border-color:#2563eb}
   .btn{padding:13px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;transition:transform .1s,box-shadow .15s;box-shadow:0 4px 14px rgba(37,99,235,.3)}
   .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(37,99,235,.4)}
@@ -87,6 +86,14 @@
   .brand .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
   .brand .cnt{font-size:11px;font-weight:900;padding:1px 7px;border-radius:999px;background:rgba(0,0,0,.14)}
 
+  /* Haupt-Tabs */
+  .tabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;background:#fff;border-radius:16px;padding:6px;box-shadow:0 2px 10px rgba(15,23,42,.06)}
+  .tabbtn{flex:1;min-width:130px;padding:11px 14px;border:none;border-radius:12px;background:transparent;color:#64748b;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+  .tabbtn:hover{background:#f1f5f9;color:#334155}
+  .tabbtn.on{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.3)}
+  .tabpanel{display:none}
+  .tabpanel.on{display:block}
+
   select{padding:9px 12px;font-size:13px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;background:#fff;font-weight:600;cursor:pointer;outline:none}
 
   /* Coaching-Analyse-Balken */
@@ -130,88 +137,17 @@
     <button class="btn btn-ghost btn-sm" onclick="location.reload()">↻ Neu laden</button>
   </header>
 
-  <!-- ══════════ MITARBEITER & EINLADUNGEN ══════════ -->
-  <div class="card" id="inviteCard">
-    <h2>🎫 Mitarbeiter einladen</h2>
-    <div class="hint">
-      Lege hier einen Mitarbeiter an. Es entsteht ein <b>persönlicher Einladungs-Link</b> mit Name &amp; Shop.
-      Du kopierst ihn und schickst ihn dem Mitarbeiter per Outlook. Er klickt den Link, vergibt nur noch ein
-      Passwort und bekommt die Installations-Anleitung fürs iPad. <b>Ohne Link kommt niemand rein.</b>
-    </div>
 
-    <div id="inviteForm" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
-      <div>
-        <label class="flabel">Vorname</label>
-        <input type="text" id="invVorname" placeholder="z. B. Diego">
-      </div>
-      <div>
-        <label class="flabel">Nachname</label>
-        <input type="text" id="invNachname" placeholder="z. B. da Silva">
-      </div>
-      <div>
-        <label class="flabel">Geschäftliche E-Mail</label>
-        <input type="text" id="invEmail" placeholder="vorname@hetec-gmbh.de">
-      </div>
-      <div>
-        <label class="flabel">Shop</label>
-        <select id="invShop">
-          <option value="">– Shop wählen –</option>
-          <option value="o2 Shop Aalen">o2 Shop Aalen</option>
-          <option value="o2 Shop Crailsheim">o2 Shop Crailsheim</option>
-          <option value="o2 Shop Schwäbisch Hall">o2 Shop Schwäbisch Hall</option>
-          <option value="o2 Shop Freilassing">o2 Shop Freilassing</option>
-          <option value="o2 Shop Neuötting">o2 Shop Neuötting</option>
-          <option value="o2 Shop Rosenheim">o2 Shop Rosenheim</option>
-          <option value="o2 Shop Sindelfingen">o2 Shop Sindelfingen</option>
-          <option value="o2 Shop Stuttgart-Vaihingen">o2 Shop Stuttgart-Vaihingen</option>
-          <option value="o2 Shop Traunreut">o2 Shop Traunreut</option>
-          <option value="o2 Shop Traunstein">o2 Shop Traunstein</option>
-          <option value="o2 Shop Waldkraiburg">o2 Shop Waldkraiburg</option>
-          <option value="o2 Shop Wasserburg">o2 Shop Wasserburg</option>
-        </select>
-      </div>
-      <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:2px">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:#334155;cursor:pointer">
-          <input type="checkbox" id="invShopwechsel" style="width:18px;height:18px;cursor:pointer">
-          Shopwechsel erlaubt (Mitarbeiter darf zwischen Shops wechseln)
-        </label>
-      </div>
-      <div style="grid-column:1/-1">
-        <button class="btn" id="invCreateBtn" onclick="createInvite()">🎫 Einladung erstellen</button>
-      </div>
-    </div>
-    <div id="invMsg"></div>
-
-    <!-- Ergebnis: fertiger Link -->
-    <div id="invResult" style="display:none;margin-top:16px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:14px;padding:16px">
-      <div style="font-size:12px;font-weight:800;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">✅ Einladungs-Link für <span id="invResultName"></span></div>
-      <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap">
-        <input type="text" id="invLink" readonly style="flex:1;min-width:220px;font-size:12.5px;background:#fff;font-family:monospace">
-        <button class="btn btn-sm" onclick="copyInvite()" id="invCopyBtn">📋 Kopieren</button>
-      </div>
-      <div style="font-size:12px;color:#0369a1;margin-top:10px;line-height:1.5">
-        Diesen Link jetzt in Outlook einfügen und an <b id="invResultEmail"></b> senden.
-        Du kannst auch die <button class="linklike" onclick="copyInviteMail()">komplette Einladungs-Mail (Text + Link) kopieren</button>.
-      </div>
-    </div>
-
-    <!-- Liste bestehender Mitarbeiter -->
-    <div style="margin-top:22px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="font-size:13px;font-weight:900;color:#0f172a">👥 Angelegte Mitarbeiter <span id="usrCount" style="color:#94a3b8;font-weight:700"></span></div>
-      <div style="flex:1"></div>
-      <select id="usrTab" onchange="renderUsers()">
-        <option value="all">Alle</option>
-        <option value="invited">Eingeladen (noch nicht registriert)</option>
-        <option value="pending">Wartet auf Freigabe</option>
-        <option value="approved">Freigegeben</option>
-        <option value="blocked">Gesperrt</option>
-      </select>
-      <button class="btn btn-ghost btn-sm" onclick="loadUsers()">↻ Aktualisieren</button>
-    </div>
-    <div id="usrMsg"></div>
-    <div id="usrList" style="margin-top:12px"><div class="empty">Lade…</div></div>
+  <div class="tabbar" id="mainTabs">
+    <button class="tabbtn" data-tab="uebersicht" onclick="switchTab('uebersicht')">📈 Übersicht</button>
+    <button class="tabbtn" data-tab="mitarbeiterverwaltung" onclick="switchTab('mitarbeiterverwaltung')">👥 Mitarbeiterverwaltung</button>
+    <button class="tabbtn" data-tab="mitarbeiter" onclick="switchTab('mitarbeiter')">👤 Mitarbeiter</button>
+    <button class="tabbtn" data-tab="coaching" onclick="switchTab('coaching')">🎯 Coaching-Analyse</button>
+    <button class="tabbtn" data-tab="skip" onclick="switchTab('skip')">⏭️ Skip-Limits</button>
+    <button class="tabbtn" data-tab="news" onclick="switchTab('news')">📢 News-Ticker</button>
   </div>
 
+  <div class="tabpanel" data-panel="uebersicht">
   <!-- KPIs -->
   <div class="card">
     <h2>📈 Überblick</h2>
@@ -250,21 +186,51 @@
     <div class="kpis" id="kpis"><div class="empty" style="grid-column:1/-1">Lade Daten…</div></div>
     <div id="exemptInfo"></div>
   </div>
-
   <!-- DSL -->
   <div class="card">
     <h2>🌐 DSL-Anbieter der Kunden</h2>
     <div class="hint">Welchen Anbieter hatte der Kunde bisher – und wie oft wurde daraufhin ein DSL-Angebot gemacht? o2-Bestandskunden fallen nicht mehr aus der Auswertung.</div>
     <div id="dsl"><div class="empty">Lade Daten…</div></div>
   </div>
+  </div>
 
+  <div class="tabpanel" data-panel="mitarbeiterverwaltung">
+  <!-- ══════════ MITARBEITERVERWALTUNG ══════════ -->
+  <div class="card" id="inviteCard">
+    <h2>👥 Mitarbeiterverwaltung</h2>
+    <div class="hint">
+      Mitarbeiter registrieren sich selbst direkt in Pencil Selling (Name, E-Mail, Passwort, Shop-Auswahl).
+      Hier siehst du alle Registrierungen, gibst neue Anfragen frei und kannst Shop, Rolle, Testnutzer-Kennzeichen
+      oder Status jederzeit ändern.
+    </div>
+
+    <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:900;color:#0f172a">👥 Nutzer <span id="usrCount" style="color:#94a3b8;font-weight:700"></span></div>
+      <div style="flex:1"></div>
+      <select id="usrTab" onchange="renderUsers()">
+        <option value="all">Alle</option>
+        <option value="pending">Neu / wartet auf Freigabe</option>
+        <option value="approved">Freigegeben</option>
+        <option value="rejected">Abgelehnt</option>
+        <option value="gesperrt">Gesperrt</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="loadUsers()">↻ Aktualisieren</button>
+    </div>
+    <div id="usrMsg"></div>
+    <div id="usrList" style="margin-top:12px"><div class="empty">Lade…</div></div>
+  </div>
+  </div>
+
+  <div class="tabpanel" data-panel="mitarbeiter">
   <!-- Mitarbeiter -->
   <div class="card">
     <h2>👥 Mitarbeiter</h2>
     <div class="hint">Vorgänge und Abschlussquote je Mitarbeiter im gewählten Zeitraum.</div>
     <div id="agents"><div class="empty">Lade Daten…</div></div>
   </div>
+  </div>
 
+  <div class="tabpanel" data-panel="coaching">
   <!-- Coaching -->
   <div class="card">
     <h2>🎯 Coaching-Analyse</h2>
@@ -278,7 +244,9 @@
     <div id="coachOffer" style="margin-top:20px"></div>
     <div id="coachCost" style="margin-top:20px"></div>
   </div>
+  </div>
 
+  <div class="tabpanel" data-panel="skip">
   <!-- Skip-Limits -->
   <div class="card">
     <h2>⏭️ Skip-Limits &amp; Gründe</h2>
@@ -297,7 +265,9 @@
     </div>
     <div id="skipReasons"><div class="empty">Lade Daten…</div></div>
   </div>
+  </div>
 
+  <div class="tabpanel" data-panel="news">
   <!-- News -->
   <div class="card">
     <h2>📢 News-Ticker</h2>
@@ -325,6 +295,8 @@
     </div>
     <div id="newsMsg"></div>
   </div>
+  </div>
+
 </div>
 
 <script>
@@ -337,7 +309,6 @@ const FB = {
   messagingSenderId: "166126857606",
   appId: "1:166126857606:web:0b29898ae53a8c3aaa1007"
 };
-const ADMIN_PW = 'telekom2026';   // gleiches Passwort wie in Pencil Selling
 const NEWS_MAX = 5;
 
 // ── Marken: je Marke ein eigenes Firestore-Dokument (news/o2, news/telekom, …) ──
@@ -360,21 +331,46 @@ function curNews(){
 }
 
 // ── Login ──
-function doLogin(){
+// Prüft das Passwort jetzt per echtem Firebase-Login (fest verknüpft mit
+// PS_ADMIN_EMAIL). Dadurch kennen die Firestore-Regeln den Admin und die
+// Mitarbeiterverwaltung bekommt Zugriff (vorher: "Missing or insufficient
+// permissions", weil ohne echten Login niemand angemeldet war).
+async function doLogin(){
   const v = document.getElementById('pw').value;
-  if (v !== ADMIN_PW){
+  const btn = document.querySelector('#login .btn');
+  document.getElementById('loginErr').style.display = 'none';
+  if (btn){ btn.disabled = true; btn.textContent = 'Prüfe…'; }
+  try {
+    await getAdminAuth().signInWithEmailAndPassword(PS_ADMIN_EMAIL, v);
+    try { sessionStorage.setItem('hetec_admin', '1'); } catch(e){}
+    start();
+  } catch(e){
     document.getElementById('loginErr').style.display = 'block';
-    return;
   }
-  try { sessionStorage.setItem('hetec_admin', '1'); } catch(e){}
-  start();
+  if (btn){ btn.disabled = false; btn.textContent = 'Anmelden'; }
 }
 document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-try { if (sessionStorage.getItem('hetec_admin') === '1') setTimeout(start, 0); } catch(e){}
+try {
+  if (sessionStorage.getItem('hetec_admin') === '1') {
+    getAdminAuth().onAuthStateChanged(u => {
+      if (u) start(); else { try { sessionStorage.removeItem('hetec_admin'); } catch(e){} }
+    });
+  }
+} catch(e){}
+
+// ── Haupt-Tabs ──
+function switchTab(name){
+  document.querySelectorAll('.tabbtn').forEach(b => b.classList.toggle('on', b.getAttribute('data-tab') === name));
+  document.querySelectorAll('.tabpanel').forEach(p => p.classList.toggle('on', p.getAttribute('data-panel') === name));
+  try { sessionStorage.setItem('hetec_admin_tab', name); } catch(e){}
+}
 
 function start(){
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  let startTab = 'uebersicht';
+  try { startTab = sessionStorage.getItem('hetec_admin_tab') || 'uebersicht'; } catch(e){}
+  switchTab(startTab);
   try {
     const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB);
     db = firebase.firestore(app);
@@ -1165,143 +1161,56 @@ const AUTH_FB = {
   appId: "1:154760755449:web:a4a006f738077eb5344a28"
 };
 
-// Wohin zeigt der Einladungs-Link? (die App, die der Mitarbeiter öffnet)
-// >>> HIER die echte URL deiner o2-App eintragen, sobald sie live ist. <<<
-const APP_BASE_URL = "https://hetec-it.github.io/PS-Dashboard/";
+
+const PS_ADMIN_EMAIL = 'd.dasilva@hetec-gmbh.de';
+
+function getAuthApp(){
+  const existing = firebase.apps.find(a => a.name === 'auth');
+  return existing ? existing : firebase.initializeApp(AUTH_FB, 'auth');
+}
 
 let authDb = null;
 function getAuthDb(){
   if (authDb) return authDb;
-  const existing = firebase.apps.find(a => a.name === 'auth');
-  const app = existing ? existing : firebase.initializeApp(AUTH_FB, 'auth');
-  authDb = firebase.firestore(app);
+  authDb = firebase.firestore(getAuthApp());
   return authDb;
 }
-
-const ALLOWED_DOMAIN = "hetec-gmbh.de";
-function invEmailOk(e){ return (e||'').toLowerCase().trim().endsWith('@'+ALLOWED_DOMAIN); }
-function shopIdFromName(nm){
-  return (nm||'').toString().trim().toLowerCase()
-    .replace(/^o2 shop /,'').replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-}
-function genCode(){
-  const c = 'abcdefghijkmnpqrstuvwxyz23456789';
-  let s = ''; for (let i=0;i<10;i++) s += c[Math.floor(Math.random()*c.length)];
-  return s;
-}
-function invMsg(html, ok){
-  const m = document.getElementById('invMsg');
-  if (!m) return;
-  m.innerHTML = html ? '<div style="margin-top:12px;padding:10px 13px;border-radius:10px;font-size:13px;font-weight:700;'+(ok?'background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d':'background:#fef2f2;border:1px solid #fecaca;color:#b91c1c')+'">'+html+'</div>' : '';
+function getAdminAuth(){
+  return firebase.auth(getAuthApp());
 }
 
-let lastInvite = null;
+const SHOP_NAMES = {
+  'aalen': 'o2 Shop Aalen',
+  'crailsheim': 'o2 Shop Crailsheim',
+  'schwaebisch-hall': 'o2 Shop Schwäbisch Hall',
+  'freilassing': 'o2 Shop Freilassing',
+  'neuoetting': 'o2 Shop Neuötting',
+  'rosenheim': 'o2 Shop Rosenheim',
+  'sindelfingen': 'o2 Shop Sindelfingen',
+  'stuttgart-vaihingen': 'o2 Shop Stuttgart-Vaihingen',
+  'traunreut': 'o2 Shop Traunreut',
+  'traunstein': 'o2 Shop Traunstein',
+  'waldkraiburg': 'o2 Shop Waldkraiburg',
+  'wasserburg': 'o2 Shop Wasserburg'
+};
+const ROLE_NAMES = { verkaeufer: 'Verkäufer', filialleiter: 'Filialleiter', admin: 'Administrator' };
 
-async function createInvite(){
-  const vor = document.getElementById('invVorname').value.trim();
-  const nach = document.getElementById('invNachname').value.trim();
-  const email = document.getElementById('invEmail').value.trim().toLowerCase();
-  const shop = document.getElementById('invShop').value.trim();
-  const wechsel = document.getElementById('invShopwechsel').checked;
-  invMsg('');
-
-  if (!vor || !nach){ invMsg('Bitte Vor- und Nachname eingeben.'); return; }
-  if (!invEmailOk(email)){ invMsg('Bitte eine gültige @'+ALLOWED_DOMAIN+' E-Mail eingeben.'); return; }
-  if (!shop){ invMsg('Bitte einen Shop eingeben.'); return; }
-
-  const btn = document.getElementById('invCreateBtn');
-  btn.disabled = true; btn.textContent = 'Erstelle…';
+function fmtWhen(ts){
   try {
-    const db = getAuthDb();
-    // Doppelte E-Mail prüfen (schon eingeladen/registriert?)
-    const dup = await db.collection('invites').where('email','==',email).limit(1).get();
-    if (!dup.empty){
-      const d = dup.docs[0].data();
-      invMsg('Für <b>'+email+'</b> existiert bereits eine Einladung (Shop: '+esc(d.shop||'—')+'). Bitte zuerst in der Liste unten prüfen/löschen.');
-      btn.disabled = false; btn.textContent = '🎫 Einladung erstellen';
-      return;
-    }
-    const code = genCode();
-    await db.collection('invites').doc(code).set({
-      code, vorname: vor, nachname: nach, email,
-      shop, shopId: shopIdFromName(shop),
-      shopwechsel: !!wechsel,
-      status: 'invited',                       // invited -> (Registrierung) -> pending -> approved
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    const fullName = vor + ' ' + nach;
-    const url = APP_BASE_URL + '?einladung=' + encodeURIComponent(code);
-    lastInvite = { fullName, email, url, shop };
-
-    document.getElementById('invResultName').textContent = fullName;
-    document.getElementById('invResultEmail').textContent = email;
-    document.getElementById('invLink').value = url;
-    document.getElementById('invResult').style.display = 'block';
-    invMsg('Einladung angelegt. Link unten kopieren und an den Mitarbeiter senden.', true);
-
-    // Formular leeren (bis auf Ergebnis)
-    document.getElementById('invVorname').value = '';
-    document.getElementById('invNachname').value = '';
-    document.getElementById('invEmail').value = '';
-    document.getElementById('invShop').value = '';
-    document.getElementById('invShopwechsel').checked = false;
-    loadUsers();
-  } catch(e){
-    invMsg('Fehler: ' + (e.message||e));
-  }
-  btn.disabled = false; btn.textContent = '🎫 Einladung erstellen';
+    if (!ts) return '—';
+    if (ts.toDate) return ts.toDate().toLocaleDateString('de-DE');
+    if (typeof ts === 'number') return new Date(ts).toLocaleDateString('de-DE');
+  } catch(e){}
+  return '—';
 }
 
-function copyInvite(){
-  const inp = document.getElementById('invLink');
-  inp.select(); inp.setSelectionRange(0, 99999);
-  try {
-    navigator.clipboard.writeText(inp.value);
-  } catch(e){ document.execCommand('copy'); }
-  const b = document.getElementById('invCopyBtn');
-  const t = b.textContent; b.textContent = '✓ Kopiert';
-  setTimeout(()=>b.textContent = t, 1500);
-}
-
-function copyInviteMail(){
-  if (!lastInvite) return;
-  const txt =
-    'Hallo ' + lastInvite.fullName + ',\n\n' +
-    'du wurdest für das Pencil Selling (o2) freigeschaltet – Shop ' + lastInvite.shop + '.\n\n' +
-    '1) Öffne diesen Link auf deinem iPad (Safari):\n' + lastInvite.url + '\n\n' +
-    '2) Vergib ein Passwort und bestätige deine E-Mail.\n' +
-    '3) Tippe in Safari auf „Teilen“ (Quadrat mit Pfeil) → „Zum Home-Bildschirm“. ' +
-    'Danach startest du Pencil Selling wie eine App über das neue Symbol.\n\n' +
-    'Viele Grüße';
-  try { navigator.clipboard.writeText(txt); } catch(e){}
-  invMsg('Komplette Einladungs-Mail wurde kopiert – jetzt in Outlook einfügen.', true);
-}
-
-// ── Mitarbeiter-Liste (invites + users zusammengeführt) ──
+// ── Mitarbeiter-Liste (nur noch users – keine Einladungen mehr) ──
 async function loadUsers(){
   const box = document.getElementById('usrList');
   box.innerHTML = '<div class="empty">Lade…</div>';
   try {
-    const db = getAuthDb();
-    const [invSnap, usrSnap] = await Promise.all([
-      db.collection('invites').orderBy('createdAt','desc').get(),
-      db.collection('users').get().catch(()=>({docs:[]}))
-    ]);
-    // users nach email indexieren (Registrierte)
-    const usersByEmail = {};
-    usrSnap.docs.forEach(d => { const u = d.data(); if (u.email) usersByEmail[u.email.toLowerCase()] = { id:d.id, ...u }; });
-
-    window.__invRows = invSnap.docs.map(d => {
-      const inv = { id:d.id, ...d.data() };
-      const reg = usersByEmail[(inv.email||'').toLowerCase()];
-      // effektiver Status: wenn registriert -> user.status, sonst 'invited'
-      inv._reg = reg || null;
-      inv._status = reg ? (reg.status || 'pending') : 'invited';
-      inv._device = reg ? !!reg.deviceId : false;
-      return inv;
-    });
+    const snap = await getAuthDb().collection('users').get();
+    window.__usrRows = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     renderUsers();
   } catch(e){
     box.innerHTML = '<div class="empty">Fehler: '+esc(e.message||'')+'</div>';
@@ -1310,40 +1219,57 @@ async function loadUsers(){
 
 function usrBadge(status){
   const m = {
-    invited:  ['Eingeladen','#f1f5f9','#64748b'],
-    pending:  ['Wartet','#fef9c3','#a16207'],
+    pending:  ['Neu','#fef9c3','#a16207'],
     approved: ['Freigegeben','#dcfce7','#15803d'],
-    blocked:  ['Gesperrt','#fee2e2','#b91c1c']
+    rejected: ['Abgelehnt','#fee2e2','#b91c1c'],
+    gesperrt: ['Gesperrt','#fee2e2','#b91c1c']
   }[status] || ['—','#f1f5f9','#64748b'];
   return '<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:'+m[1]+';color:'+m[2]+';margin-right:6px">'+m[0]+'</span>';
 }
 
 function renderUsers(){
-  const rows = window.__invRows || [];
+  const rows = window.__usrRows || [];
   const tab = (document.getElementById('usrTab')||{}).value || 'all';
-  const filtered = rows.filter(r => tab==='all' ? true : r._status===tab);
+  const filtered = rows
+    .filter(r => tab==='all' ? true : r.status===tab)
+    .sort((a,b) => {
+      const rank = s => s==='pending' ? 0 : 1;
+      const d = rank(a.status) - rank(b.status);
+      if (d) return d;
+      return (b.createdAt||0) - (a.createdAt||0);
+    });
+
   document.getElementById('usrCount').textContent = '(' + filtered.length + ')';
   const box = document.getElementById('usrList');
   if (!filtered.length){ box.innerHTML = '<div class="empty">Keine Einträge.</div>'; return; }
 
-  const fmt = ts => { try { return ts&&ts.toDate ? ts.toDate().toLocaleDateString('de-DE') : '—'; } catch(e){ return '—'; } };
   let h = '';
   filtered.forEach(r => {
-    const name = esc((r.vorname||'')+' '+(r.nachname||'')).trim() || esc(r.email);
+    const name = esc(r.name || ((r.vorname||'')+' '+(r.nachname||'')).trim()) || esc(r.email||'');
+    const shopOpts = Object.keys(SHOP_NAMES).map(id =>
+      '<option value="'+id+'"'+(id===r.shopId?' selected':'')+'>'+SHOP_NAMES[id]+'</option>'
+    ).join('');
+    const roleOpts = Object.keys(ROLE_NAMES).map(id =>
+      '<option value="'+id+'"'+(id===r.role?' selected':'')+'>'+ROLE_NAMES[id]+'</option>'
+    ).join('');
+
     h += '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:13px 14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">'
       + '<div style="min-width:200px">'
-      +   '<div style="font-weight:800;font-size:14px;color:#0f172a">'+name+'</div>'
-      +   '<div style="font-size:12.5px;color:#475569;margin:2px 0 6px">'+esc(r.email)+' · '+esc(r.shop||'—')+(r.shopwechsel?' · <span style="color:#0369a1;font-weight:700">Wechsel erlaubt</span>':'')+'</div>'
-      +   '<div>'+usrBadge(r._status)+(r._device?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#e0f2fe;color:#0369a1">Gerät gebunden</span>':'')+'</div>'
-      +   '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Eingeladen: '+fmt(r.createdAt)+'</div>'
+      +   '<div style="font-weight:800;font-size:14px;color:#0f172a">'+(name||'–')+'</div>'
+      +   '<div style="font-size:12.5px;color:#475569;margin:2px 0 6px">'+esc(r.email||'—')+'</div>'
+      +   '<div>'+usrBadge(r.status)+(r.isTestUser?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9">Testnutzer</span>':'')+'</div>'
+      +   '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Registriert: '+fmtWhen(r.createdAt)+'</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +   '<select onchange="usrSetShop(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+shopOpts+'</select>'
+      +   '<select onchange="usrSetRole(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+roleOpts+'</select>'
+      +   '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#64748b;cursor:pointer"><input type="checkbox" onchange="usrSetTest(\'' + r.id + '\',this.checked)" '+(r.isTestUser?'checked':'')+' style="width:15px;height:15px;cursor:pointer">Test</label>'
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
-      +   (r._reg && r._status!=='approved' ? '<button class="btn btn-sm" onclick="usrApprove(\''+r._reg.id+'\')">Freigeben</button>' : '')
-      +   (r._reg && r._status!=='blocked' ? '<button class="btn btn-sm btn-danger" onclick="usrBlock(\''+r._reg.id+'\')">Sperren</button>' : '')
-      +   (r._reg && r._status==='blocked' ? '<button class="btn btn-sm" onclick="usrApprove(\''+r._reg.id+'\')">Entsperren</button>' : '')
-      +   (r._device ? '<button class="btn btn-sm btn-ghost" onclick="usrClearDevice(\''+r._reg.id+'\')">Gerät lösen</button>' : '')
-      +   '<button class="btn btn-sm btn-ghost" onclick="usrCopyLink(\''+esc(r.code)+'\')">Link</button>'
-      +   '<button class="btn btn-sm btn-danger" onclick="usrDelete(\''+r.id+'\',\''+(r._reg?r._reg.id:'')+'\',\''+esc(name)+'\')">Löschen</button>'
+      +   (!r.active ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button>' : '')
+      +   (r.status==='pending' ? '<button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
+      +   (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
+      +   '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>'
       + '</div>'
       + '</div>';
   });
@@ -1351,32 +1277,35 @@ function renderUsers(){
 }
 
 async function usrApprove(uid){
-  try { await getAuthDb().collection('users').doc(uid).update({ status:'approved' }); loadUsers(); }
+  try { await getAuthDb().collection('users').doc(uid).update({ active:true, status:'approved' }); loadUsers(); }
   catch(e){ alert(e.message); }
 }
-async function usrBlock(uid){
-  try { await getAuthDb().collection('users').doc(uid).update({ status:'blocked' }); loadUsers(); }
+async function usrReject(uid){
+  try { await getAuthDb().collection('users').doc(uid).update({ active:false, status:'rejected' }); loadUsers(); }
   catch(e){ alert(e.message); }
 }
-async function usrClearDevice(uid){
-  try { await getAuthDb().collection('users').doc(uid).update({ deviceId: firebase.firestore.FieldValue.delete() }); loadUsers(); }
+async function usrDeactivate(uid){
+  try { await getAuthDb().collection('users').doc(uid).update({ active:false, status:'gesperrt' }); loadUsers(); }
   catch(e){ alert(e.message); }
 }
-function usrCopyLink(code){
-  const url = APP_BASE_URL + '?einladung=' + encodeURIComponent(code);
-  try { navigator.clipboard.writeText(url); } catch(e){}
-  const m = document.getElementById('usrMsg');
-  m.innerHTML = '<div style="margin:10px 0;padding:9px 12px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:13px;font-weight:700">Link kopiert: '+esc(url)+'</div>';
-  setTimeout(()=>m.innerHTML='', 3000);
+async function usrSetShop(uid, shopId){
+  try { await getAuthDb().collection('users').doc(uid).update({ shopId: shopId, shop: SHOP_NAMES[shopId] || '' }); }
+  catch(e){ alert(e.message); }
 }
-async function usrDelete(inviteId, userId, name){
-  if (!confirm('Mitarbeiter „'+name+'" wirklich löschen?\n\nEntfernt Einladung'+(userId?' + Freigabe':'')+'. Der Anmelde-Account selbst wird in Firebase → Authentication endgültig gelöscht.')) return;
-  try {
-    const db = getAuthDb();
-    await db.collection('invites').doc(inviteId).delete();
-    if (userId) await db.collection('users').doc(userId).delete().catch(()=>{});
-    loadUsers();
-  } catch(e){ alert(e.message); }
+async function usrSetRole(uid, role){
+  try { await getAuthDb().collection('users').doc(uid).update({ role: role }); }
+  catch(e){ alert(e.message); }
+}
+async function usrSetTest(uid, checked){
+  try { await getAuthDb().collection('users').doc(uid).update({ isTestUser: !!checked }); }
+  catch(e){ alert(e.message); }
+}
+async function usrDelete(uid){
+  const row = (window.__usrRows||[]).find(r => r.id===uid);
+  const name = row ? (row.name || ((row.vorname||'')+' '+(row.nachname||'')).trim() || row.email) : 'diesen Nutzer';
+  if (!confirm('Nutzer „'+name+'\u201c wirklich löschen?\n\nDer Datensatz wird entfernt. Das Login-Konto in Firebase Authentication bleibt bestehen und muss dort separat gelöscht werden.')) return;
+  try { await getAuthDb().collection('users').doc(uid).delete(); loadUsers(); }
+  catch(e){ alert(e.message); }
 }
 
 // Shop-Vorschläge aus vorhandenen Beratungsdaten füllen (sobald Stats geladen sind)
