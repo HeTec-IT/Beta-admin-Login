@@ -1358,7 +1358,7 @@ function renderUsers(){
     // Weitere Standorte: standardmäßig ist jeder Mitarbeiter stationär auf
     // seinem Heimatshop (shopId) und kann im Pencil Selling nicht wechseln.
     // Erst ein Eintrag in extraShopIds gibt zusätzliche Standorte frei.
-    const extraIds = r.extraShopIds || [];
+    const extraIds = Array.isArray(r.extraShopIds) ? r.extraShopIds : [];
     const extraN = extraIds.length;
     const extraBadgeTxt = extraN ? '🌍 '+extraN+' weitere'+(extraN===1?'r':'')+' Standort'+(extraN===1?'':'e') : '🔒 Stationär';
     const extraBadgeCss = extraN ? 'color:#15803d;background:#dcfce7' : 'color:#9a3412;background:#fff7ed';
@@ -1422,7 +1422,18 @@ async function usrDeactivate(uid){
 }
 async function usrSetShop(uid, shopId){
   if (isAdminUid(uid)) return;
-  try { await getAuthDb().collection('users').doc(uid).update({ shopId: shopId, shop: SHOP_NAMES[shopId] || '' }); }
+  try {
+    const row = (window.__usrRows||[]).find(r => r.id===uid);
+    const extraShopIds = Array.isArray(row && row.extraShopIds)
+      ? row.extraShopIds.filter(id => id !== shopId)
+      : [];
+    await getAuthDb().collection('users').doc(uid).update({
+      shopId: shopId,
+      shop: SHOP_NAMES[shopId] || '',
+      extraShopIds: extraShopIds
+    });
+    await loadUsers();
+  }
   catch(e){ alert(e.message); }
 }
 async function usrSetRole(uid, role){
