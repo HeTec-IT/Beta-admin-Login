@@ -120,11 +120,9 @@
     <div style="font-size:40px;margin-bottom:10px">🔐</div>
     <h1>Pencil Selling</h1>
     <p>Administration</p>
-    <button class="btn" id="msLoginBtn" style="width:100%;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:9px" onclick="doLogin()">
-      <svg width="18" height="18" viewBox="0 0 21 21" style="flex-shrink:0"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-      Mit Microsoft anmelden
-    </button>
-    <div id="loginErr" style="color:#dc2626;font-size:12.5px;font-weight:700;margin-top:11px;display:none"></div>
+    <input type="password" id="pw" placeholder="Passwort" autocomplete="current-password">
+    <button class="btn" style="width:100%;margin-top:12px" onclick="doLogin()">Anmelden</button>
+    <div id="loginErr" style="color:#dc2626;font-size:12.5px;font-weight:700;margin-top:11px;display:none">Falsches Passwort</div>
   </div>
 </div>
 
@@ -197,35 +195,13 @@
   </div>
 
   <div class="tabpanel" data-panel="mitarbeiterverwaltung">
-  <!-- ══════════ NEUEN MITARBEITER EINLADEN ══════════ -->
-  <div class="card" id="createInviteCard">
-    <h2>✉️ Neuen Mitarbeiter einladen</h2>
-    <div class="hint">
-      Mitarbeiter melden sich künftig mit ihrem Microsoft-365-Firmenkonto an. Für die erstmalige Aufnahme
-      (oder erneute Aufnahme nach Zugangsentfernung) erstellst du hier einen persönlichen Einladungslink und
-      versendest ihn selbst per Outlook. Der Link ist nur für das angegebene Microsoft-Konto gültig.
-    </div>
-    <div class="arow"><span class="lbl">Vorname</span><input type="text" id="invVorname" placeholder="Max"></div>
-    <div class="arow"><span class="lbl">Nachname</span><input type="text" id="invNachname" placeholder="Mustermann"></div>
-    <div class="arow"><span class="lbl">E-Mail</span><input type="text" id="invEmail" placeholder="max.mustermann@hetec-gmbh.de"></div>
-    <div class="arow"><span class="lbl">Heimatshop</span><select id="invShop"></select></div>
-    <div class="arow"><span class="lbl">Rolle</span><select id="invRole"></select></div>
-    <div class="arow"><span class="lbl">Ablaufdatum (optional)</span><input type="date" id="invExpires"></div>
-    <div style="margin-top:6px"><button class="btn" onclick="createInvite()" id="invCreateBtn">🔗 Einladungslink erstellen</button></div>
-    <div id="invResult" style="margin-top:14px"></div>
-
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eef2f9">
-      <div class="sec-head">📬 Offene Einladungen</div>
-      <div id="invOpenList"><div class="empty">Lade…</div></div>
-    </div>
-  </div>
-
   <!-- ══════════ MITARBEITERVERWALTUNG ══════════ -->
   <div class="card" id="inviteCard">
     <h2>👥 Mitarbeiterverwaltung</h2>
     <div class="hint">
-      Mitarbeiter melden sich mit ihrem Microsoft-365-Firmenkonto an. Hier siehst du alle Konten, gibst neue
-      Anfragen frei und kannst Shop, Rolle, Testnutzer-Kennzeichen oder Status jederzeit ändern.
+      Mitarbeiter registrieren sich selbst direkt in Pencil Selling (Name, E-Mail, Passwort, Shop-Auswahl).
+      Hier siehst du alle Registrierungen, gibst neue Anfragen frei und kannst Shop, Rolle, Testnutzer-Kennzeichen
+      oder Status jederzeit ändern.
     </div>
 
     <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -233,11 +209,10 @@
       <div style="flex:1"></div>
       <select id="usrTab" onchange="renderUsers()">
         <option value="all">Alle</option>
-        <option value="pending">Wartet auf Freigabe</option>
-        <option value="approved">Aktiv</option>
-        <option value="gesperrt">Gesperrt</option>
+        <option value="pending">Neu / wartet auf Freigabe</option>
+        <option value="approved">Freigegeben</option>
         <option value="rejected">Abgelehnt</option>
-        <option value="entfernt">Archiviert / Entfernt</option>
+        <option value="gesperrt">Gesperrt</option>
       </select>
       <button class="btn btn-ghost btn-sm" onclick="loadUsers()">↻ Aktualisieren</button>
     </div>
@@ -388,73 +363,33 @@ function curNews(){
   return newsByBrand[brand];
 }
 
-// ── Login (Microsoft 365 / Entra ID) ──
-// Ersetzt den bisherigen Passwort-Login. Firebase Authentication bleibt
-// dieselbe (AUTH_FB / beta-pencil-selling), nur der Provider wechselt von
-// "password" auf "microsoft.com". Firestore-Regeln prüfen weiterhin exakt
-// die E-Mail-Adresse (PS_ADMIN_EMAIL) – das funktioniert unverändert, weil
-// Microsoft-Logins in Firebase ebenfalls request.auth.token.email liefern.
-function friendlyAuthError(e){
-  const code = (e && e.code) || '';
-  if (code === 'admin/not-allowed') return e.message;
-  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return 'Anmeldung abgebrochen.';
-  if (code === 'auth/account-exists-with-different-credential') return 'Für dieses Microsoft-Konto existiert bereits ein anderes Anmeldeverfahren in Firebase. Bitte Administrator/Entwickler kontaktieren.';
-  if (code === 'auth/unauthorized-domain') return 'Diese Domain ist in Firebase Authentication nicht als autorisiert hinterlegt.';
-  if (code === 'auth/operation-not-allowed') return 'Microsoft-Anmeldung ist im Firebase-Projekt noch nicht aktiviert.';
-  if (code === 'auth/network-request-failed') return 'Netzwerkfehler. Bitte Internetverbindung prüfen und erneut versuchen.';
-  return 'Anmeldung fehlgeschlagen. Bitte erneut versuchen. (' + (code || 'unbekannter Fehler') + ')';
-}
-
-async function __afterAdminSignIn(user){
-  if (!user || (user.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
-    await getAdminAuth().signOut();
-    const err = new Error('Dieses Microsoft-Konto ist nicht als Administrator zugelassen.');
-    err.code = 'admin/not-allowed';
-    throw err;
-  }
-  await user.getIdToken(true);
-  await ensureAdminProfile();
-  try { sessionStorage.setItem('hetec_admin', '1'); } catch(e){}
-  start();
-}
-
+// ── Login ──
+// Prüft das Passwort jetzt per echtem Firebase-Login (fest verknüpft mit
+// PS_ADMIN_EMAIL). Dadurch kennen die Firestore-Regeln den Admin und die
+// Mitarbeiterverwaltung bekommt Zugriff (vorher: "Missing or insufficient
+// permissions", weil ohne echten Login niemand angemeldet war).
 async function doLogin(){
-  const btn = document.getElementById('msLoginBtn');
+  const v = document.getElementById('pw').value;
+  const btn = document.querySelector('#login .btn');
   const err = document.getElementById('loginErr');
   err.style.display = 'none';
-  if (btn){ btn.disabled = true; btn.textContent = 'Öffne Microsoft-Anmeldung…'; }
+  if (btn){ btn.disabled = true; btn.textContent = 'Prüfe…'; }
   try {
-    await getAdminAuth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    const provider = new firebase.auth.OAuthProvider('microsoft.com');
-    provider.setCustomParameters({ tenant: MICROSOFT_TENANT_ID });
-    let cred;
-    try {
-      cred = await getAdminAuth().signInWithPopup(provider);
-    } catch (popupErr) {
-      if (popupErr && popupErr.code === 'auth/popup-blocked'){
-        // Fallback für Browser, die Popups verweigern (z.B. manche Tablet-Browser).
-        await getAdminAuth().signInWithRedirect(provider);
-        return;
-      }
-      throw popupErr;
-    }
-    await __afterAdminSignIn(cred.user);
+    const cred = await getAdminAuth().signInWithEmailAndPassword(PS_ADMIN_EMAIL, v);
+    if (cred.user) await cred.user.getIdToken(true);
+    await ensureAdminProfile();
+    try { sessionStorage.setItem('hetec_admin', '1'); } catch(e){}
+    start();
   } catch(e){
     console.error('Admin-Login fehlgeschlagen:', e);
-    err.textContent = friendlyAuthError(e);
+    err.textContent = e && e.code === 'permission-denied'
+      ? 'Firestore-Regeln noch nicht aktualisiert.'
+      : 'Anmeldung fehlgeschlagen. Passwort prüfen.';
     err.style.display = 'block';
   }
-  if (btn){ btn.disabled = false; btn.textContent = 'Mit Microsoft anmelden'; }
+  if (btn){ btn.disabled = false; btn.textContent = 'Anmelden'; }
 }
-
-// Falls signInWithRedirect genutzt wurde: Ergebnis nach Rückkehr abholen.
-getAdminAuth().getRedirectResult().then(function(res){
-  if (res && res.user) return __afterAdminSignIn(res.user);
-}).catch(function(e){
-  console.error('Redirect-Anmeldung fehlgeschlagen:', e);
-  const err = document.getElementById('loginErr');
-  if (err){ err.textContent = friendlyAuthError(e); err.style.display = 'block'; }
-});
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 // ── Haupt-Tabs ──
 function switchTab(name){
@@ -477,7 +412,6 @@ function start(){
   loadNews();
   loadStats();
   try { loadUsers(); } catch(e){}
-  try { populateInviteFormSelects(); loadInvites(); } catch(e){}
 }
 
 // ══ NEWS ══
@@ -1258,11 +1192,6 @@ const AUTH_FB = {
   appId: "1:154760755449:web:a4a006f738077eb5344a28"
 };
 
-// ── Microsoft-Konfiguration (Entra ID) ──
-// Hier die Tenant-ID der HeTec GmbH eintragen (siehe Einrichtungsanleitung).
-// Client-ID/-Secret stehen NICHT hier, sondern ausschließlich in der
-// Firebase Console beim Microsoft-Anbieter.
-const MICROSOFT_TENANT_ID = "HIER_TENANT_ID_EINTRAGEN";
 
 const PS_ADMIN_EMAIL = 'd.dasilva@hetec-gmbh.de';
 
@@ -1304,7 +1233,6 @@ async function ensureAdminProfile(){
       role: 'admin',
       active: true,
       status: 'approved',
-      archived: false,
       isTestUser: false,
       shopId: '',
       shop: 'Verwaltung / Alle Shops',
@@ -1318,7 +1246,6 @@ async function ensureAdminProfile(){
       role: 'admin',
       active: true,
       status: 'approved',
-      archived: false,
       isTestUser: false,
       updatedAt: serverNow
     };
@@ -1393,11 +1320,10 @@ async function loadUsers(){
 
 function usrBadge(status){
   const m = {
-    pending:  ['Wartet auf Freigabe','#fef9c3','#a16207'],
-    approved: ['Aktiv','#dcfce7','#15803d'],
+    pending:  ['Neu','#fef9c3','#a16207'],
+    approved: ['Freigegeben','#dcfce7','#15803d'],
     rejected: ['Abgelehnt','#fee2e2','#b91c1c'],
-    gesperrt: ['Gesperrt','#fee2e2','#b91c1c'],
-    entfernt: ['Archiviert / Entfernt','#f1f5f9','#475569']
+    gesperrt: ['Gesperrt','#fee2e2','#b91c1c']
   }[status] || ['—','#f1f5f9','#64748b'];
   return '<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:'+m[1]+';color:'+m[2]+';margin-right:6px">'+m[0]+'</span>';
 }
@@ -1460,12 +1386,10 @@ function renderUsers(){
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
       +   (isProtectedAdmin
             ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Nicht deaktivierbar</span>' + '<button class="btn btn-sm btn-danger" onclick="openOwnAccountDeleteDialog()">🗑 Eigenes Testkonto löschen</button>'
-            : (r.status==='pending' ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button><button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
-              + ((r.status==='gesperrt'||r.status==='rejected') ? '<button class="btn btn-sm" onclick="usrReactivate(\'' + r.id + '\')">Reaktivieren</button>' : '')
-              + (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Sperren</button>' : '')
-              + (r.status!=='entfernt'
-                  ? '<button class="btn btn-sm btn-danger" onclick="usrRemoveAccess(\'' + r.id + '\')">Zugang entfernen</button>'
-                  : '<span style="font-size:11px;color:#94a3b8;font-weight:700">Erneut einladen, um Zugang wiederherzustellen</span>'))
+            : (!r.active ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button>' : '')
+              + (r.status==='pending' ? '<button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
+              + (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
+              + '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>')
       + '</div>'
       + '</div>'
       + (isProtectedAdmin ? '' :
@@ -1686,174 +1610,12 @@ async function deleteOwnAdminTestAccount(){
   }
 }
 
-async function usrReactivate(uid){
-  if (isAdminUid(uid)) return;
-  try { await getAuthDb().collection('users').doc(uid).update({ active:true, status:'approved', archived:false }); loadUsers(); }
-  catch(e){ alert(e.message); }
-}
-
-// Ersetzt den früheren "Löschen"-Button. Behauptet NICHT, dass das Microsoft-
-// bzw. Firebase-Authentication-Konto gelöscht wird (das ist technisch aus dem
-// Frontend heraus nicht sicher möglich) – nur der Pencil-Selling-Zugang und
-// das Firestore-Profil werden gesperrt/archiviert. Eine erneute Aufnahme ist
-// später jederzeit über einen neuen Einladungslink möglich (dieselbe
-// Microsoft-/Firebase-Identität wird dabei wiederverwendet).
-async function usrRemoveAccess(uid){
-  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist geschützt und kann hier nicht entfernt werden.');
+async function usrDelete(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist geschützt und kann hier nicht gelöscht werden.');
   const row = (window.__usrRows||[]).find(r => r.id===uid);
   const name = row ? (row.name || ((row.vorname||'')+' '+(row.nachname||'')).trim() || row.email) : 'diesen Nutzer';
-  const emailLower = ((row && row.email) || '').toLowerCase();
-  if (!confirm(
-    'Zugang für „' + name + '\u201c wirklich entfernen?\n\n' +
-    'Der Pencil-Selling-Zugang und das Benutzerprofil werden entfernt. Das Microsoft- ' +
-    'bzw. Firebase-Authentication-Konto bleibt aus technischen Gründen bestehen. Der ' +
-    'Mitarbeiter hat danach keinen Zugriff mehr und kann später über einen neuen ' +
-    'Einladungslink erneut aufgenommen werden.'
-  )) return;
-  try {
-    await getAuthDb().collection('users').doc(uid).update({ active:false, status:'entfernt', archived:true });
-    if (emailLower){
-      const openInv = await getAuthDb().collection('invites').where('emailLower','==',emailLower).where('status','==','open').get();
-      if (!openInv.empty){
-        const batch = getAuthDb().batch();
-        openInv.docs.forEach(d => batch.update(d.ref, { status:'revoked' }));
-        await batch.commit();
-      }
-    }
-    loadUsers();
-    try { loadInvites(); } catch(e){}
-  } catch(e){ alert(e.message); }
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  PERSÖNLICHE EINLADUNGSLINKS  (invites/{inviteCode} in beta-pencil-selling)
-// ══════════════════════════════════════════════════════════════════
-// Öffentliche Adresse von Pencil Selling – bitte prüfen/anpassen.
-const INVITE_LINK_BASE = "https://hetec-it.github.io/PS-Dashboard/";
-
-function __genInviteCode(){
-  // 160 Bit Zufall (20 Byte) → deutlich über den geforderten 128 Bit.
-  const bytes = new Uint8Array(20);
-  crypto.getRandomValues(bytes);
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
-  return s;
-}
-
-function populateInviteFormSelects(){
-  const shopSel = document.getElementById('invShop');
-  const roleSel = document.getElementById('invRole');
-  if (shopSel && !shopSel.options.length){
-    shopSel.innerHTML = Object.keys(SHOP_NAMES).map(id => '<option value="'+id+'">'+SHOP_NAMES[id]+'</option>').join('');
-  }
-  if (roleSel && !roleSel.options.length){
-    roleSel.innerHTML = Object.keys(ROLE_NAMES).filter(r => r !== 'admin')
-      .map(id => '<option value="'+id+'"'+(id==='verkaeufer'?' selected':'')+'>'+ROLE_NAMES[id]+'</option>').join('');
-  }
-}
-
-async function createInvite(){
-  const btn = document.getElementById('invCreateBtn');
-  const box = document.getElementById('invResult');
-  const vorname = (document.getElementById('invVorname').value || '').trim();
-  const nachname = (document.getElementById('invNachname').value || '').trim();
-  const emailRaw = (document.getElementById('invEmail').value || '').trim();
-  const email = emailRaw.toLowerCase();
-  const shopId = document.getElementById('invShop').value;
-  const role = document.getElementById('invRole').value;
-  const expiresStr = document.getElementById('invExpires').value;
-
-  box.innerHTML = '';
-  if (!nachname || !email){
-    box.innerHTML = '<div class="empty" style="color:#dc2626">Bitte mindestens Nachname und E-Mail ausfüllen.</div>';
-    return;
-  }
-  if (!/^[^\s@]+@hetec-gmbh\.de$/.test(email)){
-    box.innerHTML = '<div class="empty" style="color:#dc2626">Nur E-Mail-Adressen auf @hetec-gmbh.de sind erlaubt.</div>';
-    return;
-  }
-
-  const code = __genInviteCode();
-  const name = vorname ? (vorname + ' ' + nachname).trim() : nachname;
-  const expiresAt = expiresStr ? firebase.firestore.Timestamp.fromDate(new Date(expiresStr + 'T23:59:59')) : null;
-
-  if (btn){ btn.disabled = true; btn.textContent = 'Erstelle…'; }
-  try {
-    await getAuthDb().collection('invites').doc(code).set({
-      email: emailRaw,
-      emailLower: email,
-      vorname: vorname,
-      nachname: nachname,
-      name: name,
-      shopId: shopId,
-      shop: SHOP_NAMES[shopId] || '',
-      role: role,
-      extraShopIds: [],
-      status: 'open',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      expiresAt: expiresAt,
-      createdBy: PS_ADMIN_EMAIL
-    });
-    const psLink = INVITE_LINK_BASE + '?invite=' + code;
-    box.innerHTML =
-      '<div style="border:1.5px solid #bbf7d0;background:#f0fdf4;border-radius:12px;padding:14px">'
-      + '<div style="font-weight:800;color:#15803d;margin-bottom:8px">✅ Einladung erstellt für ' + esc(name) + ' (' + esc(emailRaw) + ')</div>'
-      + '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
-      +   '<input readonly id="invLinkOut" value="' + esc(psLink) + '" style="flex:1;font-size:12px" onclick="this.select()">'
-      +   '<button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById(\'invLinkOut\').value)">📋 Link kopieren</button>'
-      + '</div>'
-      + '<div style="font-size:12px;color:#475569">Shop: ' + esc(SHOP_NAMES[shopId]||'') + ' · Rolle: ' + esc(ROLE_NAMES[role]||role) + ' · Status: offen'
-      + (expiresStr ? ' · läuft ab: ' + expiresStr : '') + '</div>'
-      + '</div>';
-    document.getElementById('invNachname').value = '';
-    document.getElementById('invVorname').value = '';
-    document.getElementById('invEmail').value = '';
-    document.getElementById('invExpires').value = '';
-    loadInvites();
-  } catch(e){
-    box.innerHTML = '<div class="empty" style="color:#dc2626">Fehler: ' + esc(e.message || '') + '</div>';
-  }
-  if (btn){ btn.disabled = false; btn.textContent = '🔗 Einladungslink erstellen'; }
-}
-
-async function loadInvites(){
-  const box = document.getElementById('invOpenList');
-  if (!box) return;
-  box.innerHTML = '<div class="empty">Lade…</div>';
-  try {
-    const snap = await getAuthDb().collection('invites').where('status', '==', 'open').get();
-    window.__invRows = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
-    renderOpenInvites();
-  } catch(e){
-    box.innerHTML = '<div class="empty">Fehler: ' + esc(e.message || '') + '</div>';
-  }
-}
-
-function renderOpenInvites(){
-  const box = document.getElementById('invOpenList');
-  if (!box) return;
-  const rows = (window.__invRows || []).slice().sort((a, b) => {
-    const ta = (a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0;
-    const tb = (b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0;
-    return tb - ta;
-  });
-  if (!rows.length){ box.innerHTML = '<div class="empty">Keine offenen Einladungen.</div>'; return; }
-  box.innerHTML = rows.map(r => {
-    const link = INVITE_LINK_BASE + '?invite=' + r.id;
-    return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">'
-      + '<div><div style="font-weight:700;font-size:13px">' + esc(r.name || r.email || '') + '</div>'
-      + '<div style="font-size:11.5px;color:#64748b">' + esc(r.email || '') + ' · ' + esc(r.shop || '') + ' · erstellt ' + fmtWhen(r.createdAt)
-      + (r.expiresAt ? ' · läuft ab ' + fmtWhen(r.expiresAt) : '') + '</div></div>'
-      + '<div style="display:flex;gap:6px">'
-      +   '<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(\'' + link + '\')">📋 Link</button>'
-      +   '<button class="btn btn-sm btn-danger" onclick="revokeInvite(\'' + r.id + '\')">Widerrufen</button>'
-      + '</div></div>';
-  }).join('');
-}
-
-async function revokeInvite(code){
-  if (!confirm('Einladung wirklich widerrufen? Der Link funktioniert danach nicht mehr.')) return;
-  try { await getAuthDb().collection('invites').doc(code).update({ status: 'revoked' }); loadInvites(); }
+  if (!confirm('Nutzer „'+name+'\u201c wirklich löschen?\n\nDer Datensatz wird entfernt. Das Login-Konto in Firebase Authentication bleibt bestehen und muss dort separat gelöscht werden.')) return;
+  try { await getAuthDb().collection('users').doc(uid).delete(); loadUsers(); }
   catch(e){ alert(e.message); }
 }
 
