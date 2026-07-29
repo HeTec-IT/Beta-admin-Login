@@ -1355,7 +1355,21 @@ function renderUsers(){
       '<option value="'+id+'"'+(id===r.role?' selected':'')+'>'+ROLE_NAMES[id]+'</option>'
     ).join('');
 
-    h += '<div style="border:1px solid '+(isProtectedAdmin?'#bfdbfe':'#e2e8f0')+';background:'+(isProtectedAdmin?'#eff6ff':'#fff')+';border-radius:12px;padding:13px 14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">'
+    // Weitere Standorte: standardmäßig ist jeder Mitarbeiter stationär auf
+    // seinem Heimatshop (shopId) und kann im Pencil Selling nicht wechseln.
+    // Erst ein Eintrag in extraShopIds gibt zusätzliche Standorte frei.
+    const extraIds = r.extraShopIds || [];
+    const extraN = extraIds.length;
+    const extraBadgeTxt = extraN ? '🌍 '+extraN+' weitere'+(extraN===1?'r':'')+' Standort'+(extraN===1?'':'e') : '🔒 Stationär';
+    const extraBadgeCss = extraN ? 'color:#15803d;background:#dcfce7' : 'color:#9a3412;background:#fff7ed';
+    const extraChecks = Object.keys(SHOP_NAMES).filter(id => id !== r.shopId).map(id =>
+      '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1.5px solid #e2e8f0;padding:6px 10px;border-radius:9px;cursor:pointer">'
+      + '<input type="checkbox" onchange="usrToggleExtraShop(\''+r.id+'\',\''+id+'\',this.checked)" '+(extraIds.includes(id)?'checked':'')+' style="width:14px;height:14px;cursor:pointer">'
+      + SHOP_NAMES[id] + '</label>'
+    ).join('');
+
+    h += '<div style="border:1px solid '+(isProtectedAdmin?'#bfdbfe':'#e2e8f0')+';background:'+(isProtectedAdmin?'#eff6ff':'#fff')+';border-radius:12px;padding:13px 14px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">'
       + '<div style="min-width:200px">'
       +   '<div style="font-weight:800;font-size:14px;color:#0f172a">'+(name||'–')+'</div>'
       +   '<div style="font-size:12.5px;color:#475569;margin:2px 0 6px">'+esc(r.email||'—')+'</div>'
@@ -1377,6 +1391,15 @@ function renderUsers(){
               + (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
               + '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>')
       + '</div>'
+      + '</div>'
+      + (isProtectedAdmin ? '' :
+        '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9">'
+        + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+        +   '<span id="extraBadge-'+r.id+'" style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;'+extraBadgeCss+'">'+extraBadgeTxt+'</span>'
+        +   '<button type="button" class="linklike" onclick="toggleExtraPanel(\''+r.id+'\')">Weitere Standorte verwalten</button>'
+        + '</div>'
+        + '<div id="extra-'+r.id+'" style="display:none;flex-wrap:wrap;gap:7px;margin-top:9px">'+extraChecks+'</div>'
+        + '</div>')
       + '</div>';
   });
   box.innerHTML = h;
@@ -1411,6 +1434,40 @@ async function usrSetTest(uid, checked){
   if (isAdminUid(uid)) return;
   try { await getAuthDb().collection('users').doc(uid).update({ isTestUser: !!checked }); }
   catch(e){ alert(e.message); }
+}
+
+function toggleExtraPanel(uid){
+  const el = document.getElementById('extra-'+uid);
+  if (!el) return;
+  el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+}
+
+function updateExtraBadge(uid){
+  const row = (window.__usrRows||[]).find(r => r.id===uid);
+  const el = document.getElementById('extraBadge-'+uid);
+  if (!row || !el) return;
+  const n = (row.extraShopIds||[]).length;
+  el.textContent = n ? '🌍 '+n+' weitere'+(n===1?'r':'')+' Standort'+(n===1?'':'e') : '🔒 Stationär';
+  el.style.background = n ? '#dcfce7' : '#fff7ed';
+  el.style.color = n ? '#15803d' : '#9a3412';
+}
+
+// Freigabe weiterer Standorte: ohne Eintrag bleibt der Mitarbeiter stationär
+// und kann im Pencil Selling nur seinen Heimatshop (shopId) nutzen.
+async function usrToggleExtraShop(uid, shopId, checked){
+  if (isAdminUid(uid)) return;
+  try {
+    const ref = getAuthDb().collection('users').doc(uid);
+    if (checked) await ref.update({ extraShopIds: firebase.firestore.FieldValue.arrayUnion(shopId) });
+    else await ref.update({ extraShopIds: firebase.firestore.FieldValue.arrayRemove(shopId) });
+    const row = (window.__usrRows||[]).find(r => r.id===uid);
+    if (row){
+      const cur = new Set(row.extraShopIds || []);
+      if (checked) cur.add(shopId); else cur.delete(shopId);
+      row.extraShopIds = [...cur];
+    }
+    updateExtraBadge(uid);
+  } catch(e){ alert(e.message); }
 }
 function isAdminUid(uid){
   const row = (window.__usrRows||[]).find(r => r.id===uid);
