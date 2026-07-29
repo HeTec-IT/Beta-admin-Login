@@ -299,6 +299,36 @@
 
 </div>
 
+<!-- ══ EIGENES TESTKONTO VOLLSTÄNDIG LÖSCHEN ══ -->
+<div id="ownAccountDeleteModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.68);align-items:center;justify-content:center;padding:18px">
+  <div style="width:100%;max-width:470px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.38)">
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:13px;background:#fef2f2;font-size:23px;flex-shrink:0">🗑️</div>
+      <div>
+        <div style="font-size:17px;font-weight:900;color:#991b1b">Eigenes Testkonto vollständig löschen</div>
+        <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-top:4px">Gelöscht werden ausschließlich dein Firebase-Login und dein Benutzerprofil <b>users/{uid}</b>. Statistiken, Angebote und andere Nutzer bleiben erhalten.</div>
+      </div>
+    </div>
+
+    <div style="padding:12px 14px;border-radius:12px;background:#fff7ed;border:1.5px solid #fed7aa;color:#9a3412;font-size:12.5px;line-height:1.5;margin-bottom:15px">
+      <b>Achtung:</b> Danach wirst du sofort abgemeldet. Für den nächsten Test musst du dich mit <b>d.dasilva@hetec-gmbh.de</b> neu registrieren und die E-Mail-Adresse erneut bestätigen.
+    </div>
+
+    <label class="flabel" for="ownDeletePassword">Aktuelles Firebase-Passwort</label>
+    <input type="password" id="ownDeletePassword" placeholder="Passwort eingeben" autocomplete="current-password">
+
+    <label class="flabel" for="ownDeleteConfirm" style="margin-top:13px">Zur Bestätigung LÖSCHEN eingeben</label>
+    <input type="text" id="ownDeleteConfirm" placeholder="LÖSCHEN" autocomplete="off">
+
+    <div id="ownDeleteError" class="msg err" style="display:none;margin-top:13px"></div>
+
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;flex-wrap:wrap">
+      <button class="btn btn-ghost" id="ownDeleteCancelBtn" onclick="closeOwnAccountDeleteDialog()">Abbrechen</button>
+      <button class="btn btn-danger" id="ownDeleteConfirmBtn" onclick="deleteOwnAdminTestAccount()">🗑 Konto endgültig löschen</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══ Firebase (dieselbe DB wie Pencil Selling) ══
 const FB = {
@@ -1341,7 +1371,7 @@ function renderUsers(){
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
       +   (isProtectedAdmin
-            ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Nicht deaktivierbar</span>'
+            ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Nicht deaktivierbar</span>' + '<button class="btn btn-sm btn-danger" onclick="openOwnAccountDeleteDialog()">🗑 Eigenes Testkonto löschen</button>'
             : (!r.active ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button>' : '')
               + (r.status==='pending' ? '<button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
               + (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
@@ -1385,6 +1415,131 @@ async function usrSetTest(uid, checked){
 function isAdminUid(uid){
   const row = (window.__usrRows||[]).find(r => r.id===uid);
   return !!row && (row.email || '').toLowerCase() === PS_ADMIN_EMAIL.toLowerCase();
+}
+
+
+let ownAccountDeleteBusy = false;
+
+function setOwnDeleteError(message){
+  const box = document.getElementById('ownDeleteError');
+  if (!box) return;
+  box.textContent = message || '';
+  box.style.display = message ? 'block' : 'none';
+}
+
+function openOwnAccountDeleteDialog(){
+  const user = getAdminAuth().currentUser;
+  if (!user || (user.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
+    alert('Die Löschfunktion ist ausschließlich für das aktuell angemeldete Administratorkonto verfügbar.');
+    return;
+  }
+  const modal = document.getElementById('ownAccountDeleteModal');
+  const pw = document.getElementById('ownDeletePassword');
+  const confirmInput = document.getElementById('ownDeleteConfirm');
+  if (pw) pw.value = '';
+  if (confirmInput) confirmInput.value = '';
+  setOwnDeleteError('');
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => { try { pw.focus(); } catch(e){} }, 50);
+}
+
+function closeOwnAccountDeleteDialog(){
+  if (ownAccountDeleteBusy) return;
+  const modal = document.getElementById('ownAccountDeleteModal');
+  if (modal) modal.style.display = 'none';
+  setOwnDeleteError('');
+}
+
+async function deleteOwnAdminTestAccount(){
+  if (ownAccountDeleteBusy) return;
+
+  const password = (document.getElementById('ownDeletePassword') || {}).value || '';
+  const confirmation = ((document.getElementById('ownDeleteConfirm') || {}).value || '').trim();
+  const btn = document.getElementById('ownDeleteConfirmBtn');
+  const cancelBtn = document.getElementById('ownDeleteCancelBtn');
+
+  if (!password){
+    setOwnDeleteError('Bitte dein aktuelles Firebase-Passwort eingeben.');
+    return;
+  }
+  if (confirmation.toLocaleUpperCase('de-DE') !== 'LÖSCHEN'){
+    setOwnDeleteError('Bitte zur Bestätigung exakt LÖSCHEN eingeben.');
+    return;
+  }
+
+  let currentUser = getAdminAuth().currentUser;
+  if (!currentUser || (currentUser.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
+    setOwnDeleteError('Das Administratorkonto ist nicht mehr angemeldet. Bitte die Seite neu laden.');
+    return;
+  }
+
+  ownAccountDeleteBusy = true;
+  setOwnDeleteError('');
+  if (btn){ btn.disabled = true; btn.textContent = 'Lösche Konto…'; }
+  if (cancelBtn) cancelBtn.disabled = true;
+
+  let profileRef = null;
+  let profileBackup = null;
+
+  try {
+    // Firebase verlangt für eine sicherheitskritische Kontolöschung eine frische Anmeldung.
+    const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
+    await currentUser.reauthenticateWithCredential(credential);
+
+    currentUser = getAdminAuth().currentUser;
+    if (!currentUser || (currentUser.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
+      throw new Error('Sicherheitsprüfung des Administratorkontos fehlgeschlagen.');
+    }
+
+    const uid = currentUser.uid;
+    profileRef = getAuthDb().collection('users').doc(uid);
+    const profileSnap = await profileRef.get();
+    profileBackup = profileSnap.exists ? profileSnap.data() : null;
+
+    // Zuerst das Firestore-Profil entfernen.
+    if (profileSnap.exists) await profileRef.delete();
+
+    // Anschließend das eigene Firebase-Authentication-Konto löschen.
+    try {
+      await currentUser.delete();
+    } catch (authDeleteError){
+      // Falls Auth nicht gelöscht werden konnte, das Profil wiederherstellen,
+      // damit kein halbfertiger Zustand entsteht.
+      if (profileBackup && profileRef){
+        try { await profileRef.set(profileBackup); }
+        catch (restoreError){
+          console.error('Benutzerprofil konnte nach fehlgeschlagener Auth-Löschung nicht wiederhergestellt werden:', restoreError);
+        }
+      }
+      throw authDeleteError;
+    }
+
+    try {
+      sessionStorage.removeItem('hetec_admin');
+      sessionStorage.removeItem('hetec_admin_tab');
+    } catch(e){}
+
+    alert('Dein Testkonto wurde vollständig gelöscht. Du wirst jetzt abgemeldet und kannst dich anschließend erneut registrieren.');
+    location.reload();
+  } catch(e){
+    console.error('Eigenes Testkonto konnte nicht gelöscht werden:', e);
+    const code = e && e.code ? String(e.code) : '';
+    let message = 'Konto konnte nicht gelöscht werden: ' + (e && e.message ? e.message : 'Unbekannter Fehler');
+    if (code.includes('wrong-password') || code.includes('invalid-credential') || code.includes('invalid-login-credentials')){
+      message = 'Das eingegebene Passwort ist nicht korrekt.';
+    } else if (code.includes('too-many-requests')){
+      message = 'Zu viele Versuche. Bitte kurz warten und danach erneut probieren.';
+    } else if (code.includes('requires-recent-login')){
+      message = 'Die Anmeldung ist nicht mehr aktuell. Bitte abmelden, neu anmelden und die Löschung erneut starten.';
+    } else if (code.includes('permission-denied')){
+      message = 'Firestore verweigert die Löschung. Bitte die Regeln des Beta-Firebase-Projekts prüfen.';
+    }
+    setOwnDeleteError(message);
+  } finally {
+    ownAccountDeleteBusy = false;
+    if (btn){ btn.disabled = false; btn.textContent = '🗑 Konto endgültig löschen'; }
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
 }
 
 async function usrDelete(uid){
