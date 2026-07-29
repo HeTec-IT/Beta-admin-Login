@@ -309,6 +309,9 @@ const FB = {
   messagingSenderId: "166126857606",
   appId: "1:166126857606:web:0b29898ae53a8c3aaa1007"
 };
+// Die Statistik-App immer ausdrücklich als [DEFAULT]-App initialisieren.
+// So funktioniert die Seite auch dann, wenn die separate Auth-App bereits existiert.
+const statsApp = firebase.apps.find(a => a.name === '[DEFAULT]') || firebase.initializeApp(FB);
 const NEWS_MAX = 5;
 
 // ── Marken: je Marke ein eigenes Firestore-Dokument (news/o2, news/telekom, …) ──
@@ -321,7 +324,7 @@ let brand = 'o2';                 // aktuell bearbeitete Marke
 let newsByBrand = {};             // { o2:[…], telekom:[…], vodafone:[…] }
 let dirty = {};                   // { o2:true } = ungespeicherte Änderungen
 
-let db = null, rows = [];
+let db = firebase.firestore(statsApp), rows = [];
 window.rows = rows;
 
 // Bequemer Zugriff auf die Meldungen der aktuellen Marke
@@ -338,25 +341,25 @@ function curNews(){
 async function doLogin(){
   const v = document.getElementById('pw').value;
   const btn = document.querySelector('#login .btn');
-  document.getElementById('loginErr').style.display = 'none';
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
   if (btn){ btn.disabled = true; btn.textContent = 'Prüfe…'; }
   try {
-    await getAdminAuth().signInWithEmailAndPassword(PS_ADMIN_EMAIL, v);
+    const cred = await getAdminAuth().signInWithEmailAndPassword(PS_ADMIN_EMAIL, v);
+    if (cred.user) await cred.user.getIdToken(true);
+    await ensureAdminProfile();
     try { sessionStorage.setItem('hetec_admin', '1'); } catch(e){}
     start();
   } catch(e){
-    document.getElementById('loginErr').style.display = 'block';
+    console.error('Admin-Login fehlgeschlagen:', e);
+    err.textContent = e && e.code === 'permission-denied'
+      ? 'Firestore-Regeln noch nicht aktualisiert.'
+      : 'Anmeldung fehlgeschlagen. Passwort prüfen.';
+    err.style.display = 'block';
   }
   if (btn){ btn.disabled = false; btn.textContent = 'Anmelden'; }
 }
 document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-try {
-  if (sessionStorage.getItem('hetec_admin') === '1') {
-    getAdminAuth().onAuthStateChanged(u => {
-      if (u) start(); else { try { sessionStorage.removeItem('hetec_admin'); } catch(e){} }
-    });
-  }
-} catch(e){}
 
 // ── Haupt-Tabs ──
 function switchTab(name){
@@ -371,11 +374,9 @@ function start(){
   let startTab = 'uebersicht';
   try { startTab = sessionStorage.getItem('hetec_admin_tab') || 'uebersicht'; } catch(e){}
   switchTab(startTab);
-  try {
-    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB);
-    db = firebase.firestore(app);
-  } catch(e){
-    alert('Keine Verbindung zu Firebase: ' + e.message);
+  // Firebase wurde bereits vor dem Login sauber initialisiert.
+  if (!db){
+    alert('Keine Verbindung zur Statistik-Datenbank. Bitte die Seite neu laden.');
     return;
   }
   loadNews();
@@ -1179,6 +1180,75 @@ function getAdminAuth(){
   return firebase.auth(getAuthApp());
 }
 
+// Erstellt das Firestore-Profil des Administrators automatisch, falls es fehlt.
+// Firebase Authentication allein erzeugt kein Dokument in users/{uid}.
+async function ensureAdminProfile(){
+  const user = getAdminAuth().currentUser;
+  if (!user) throw new Error('Kein Administrator angemeldet.');
+  if ((user.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()) {
+    await getAdminAuth().signOut();
+    throw new Error('Dieses Konto ist nicht als Administrator zugelassen.');
+  }
+
+  const ref = getAuthDb().collection('users').doc(user.uid);
+  const snap = await ref.get();
+  const serverNow = firebase.firestore.FieldValue.serverTimestamp();
+
+  if (!snap.exists){
+    await ref.set({
+      email: PS_ADMIN_EMAIL,
+      name: 'Diego da Silva',
+      vorname: 'Diego',
+      nachname: 'da Silva',
+      role: 'admin',
+      active: true,
+      status: 'approved',
+      isTestUser: false,
+      shopId: '',
+      shop: 'Verwaltung / Alle Shops',
+      createdAt: serverNow,
+      updatedAt: serverNow
+    });
+  } else {
+    const data = snap.data() || {};
+    const patch = {
+      email: PS_ADMIN_EMAIL,
+      role: 'admin',
+      active: true,
+      status: 'approved',
+      isTestUser: false,
+      updatedAt: serverNow
+    };
+    if (!data.name) patch.name = 'Diego da Silva';
+    if (!data.vorname) patch.vorname = 'Diego';
+    if (!data.nachname) patch.nachname = 'da Silva';
+    if (!data.shop) patch.shop = 'Verwaltung / Alle Shops';
+    await ref.set(patch, { merge: true });
+  }
+}
+
+// Die bestehende Firebase-Sitzung erst jetzt prüfen, nachdem AUTH_FB definiert ist.
+function restoreAdminSession(){
+  let marked = false;
+  try { marked = sessionStorage.getItem('hetec_admin') === '1'; } catch(e){}
+  if (!marked) return;
+
+  getAdminAuth().onAuthStateChanged(async user => {
+    if (!user){
+      try { sessionStorage.removeItem('hetec_admin'); } catch(e){}
+      return;
+    }
+    try {
+      await user.getIdToken(true);
+      await ensureAdminProfile();
+      start();
+    } catch(e){
+      console.error('Admin-Sitzung konnte nicht wiederhergestellt werden:', e);
+      try { sessionStorage.removeItem('hetec_admin'); } catch(_){}
+    }
+  });
+}
+
 const SHOP_NAMES = {
   'aalen': 'o2 Shop Aalen',
   'crailsheim': 'o2 Shop Crailsheim',
@@ -1209,6 +1279,7 @@ async function loadUsers(){
   const box = document.getElementById('usrList');
   box.innerHTML = '<div class="empty">Lade…</div>';
   try {
+    await ensureAdminProfile();
     const snap = await getAuthDb().collection('users').get();
     window.__usrRows = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     renderUsers();
@@ -1245,6 +1316,7 @@ function renderUsers(){
 
   let h = '';
   filtered.forEach(r => {
+    const isProtectedAdmin = (r.email || '').toLowerCase() === PS_ADMIN_EMAIL.toLowerCase();
     const name = esc(r.name || ((r.vorname||'')+' '+(r.nachname||'')).trim()) || esc(r.email||'');
     const shopOpts = Object.keys(SHOP_NAMES).map(id =>
       '<option value="'+id+'"'+(id===r.shopId?' selected':'')+'>'+SHOP_NAMES[id]+'</option>'
@@ -1253,23 +1325,27 @@ function renderUsers(){
       '<option value="'+id+'"'+(id===r.role?' selected':'')+'>'+ROLE_NAMES[id]+'</option>'
     ).join('');
 
-    h += '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:13px 14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">'
+    h += '<div style="border:1px solid '+(isProtectedAdmin?'#bfdbfe':'#e2e8f0')+';background:'+(isProtectedAdmin?'#eff6ff':'#fff')+';border-radius:12px;padding:13px 14px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">'
       + '<div style="min-width:200px">'
       +   '<div style="font-weight:800;font-size:14px;color:#0f172a">'+(name||'–')+'</div>'
       +   '<div style="font-size:12.5px;color:#475569;margin:2px 0 6px">'+esc(r.email||'—')+'</div>'
-      +   '<div>'+usrBadge(r.status)+(r.isTestUser?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9">Testnutzer</span>':'')+'</div>'
+      +   '<div>'+usrBadge(r.status)+(isProtectedAdmin?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8">Administrator · geschützt</span>':(r.isTestUser?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9">Testnutzer</span>':''))+'</div>'
       +   '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Registriert: '+fmtWhen(r.createdAt)+'</div>'
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-      +   '<select onchange="usrSetShop(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+shopOpts+'</select>'
-      +   '<select onchange="usrSetRole(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+roleOpts+'</select>'
-      +   '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#64748b;cursor:pointer"><input type="checkbox" onchange="usrSetTest(\'' + r.id + '\',this.checked)" '+(r.isTestUser?'checked':'')+' style="width:15px;height:15px;cursor:pointer">Test</label>'
+      +   (isProtectedAdmin
+            ? '<span style="font-size:12.5px;font-weight:700;color:#1e40af;padding:9px 12px;background:#dbeafe;border-radius:10px">🏢 Verwaltung / Alle Shops</span><span style="font-size:12.5px;font-weight:700;color:#1e40af;padding:9px 12px;background:#dbeafe;border-radius:10px">Administrator</span>'
+            : '<select onchange="usrSetShop(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+shopOpts+'</select>'
+              + '<select onchange="usrSetRole(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+roleOpts+'</select>'
+              + '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#64748b;cursor:pointer"><input type="checkbox" onchange="usrSetTest(\'' + r.id + '\',this.checked)" '+(r.isTestUser?'checked':'')+' style="width:15px;height:15px;cursor:pointer">Test</label>')
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
-      +   (!r.active ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button>' : '')
-      +   (r.status==='pending' ? '<button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
-      +   (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
-      +   '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>'
+      +   (isProtectedAdmin
+            ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Nicht deaktivierbar</span>'
+            : (!r.active ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button>' : '')
+              + (r.status==='pending' ? '<button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
+              + (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
+              + '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>')
       + '</div>'
       + '</div>';
   });
@@ -1277,30 +1353,42 @@ function renderUsers(){
 }
 
 async function usrApprove(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist bereits freigegeben.');
   try { await getAuthDb().collection('users').doc(uid).update({ active:true, status:'approved' }); loadUsers(); }
   catch(e){ alert(e.message); }
 }
 async function usrReject(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto kann nicht abgelehnt werden.');
   try { await getAuthDb().collection('users').doc(uid).update({ active:false, status:'rejected' }); loadUsers(); }
   catch(e){ alert(e.message); }
 }
 async function usrDeactivate(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto kann nicht deaktiviert werden.');
   try { await getAuthDb().collection('users').doc(uid).update({ active:false, status:'gesperrt' }); loadUsers(); }
   catch(e){ alert(e.message); }
 }
 async function usrSetShop(uid, shopId){
+  if (isAdminUid(uid)) return;
   try { await getAuthDb().collection('users').doc(uid).update({ shopId: shopId, shop: SHOP_NAMES[shopId] || '' }); }
   catch(e){ alert(e.message); }
 }
 async function usrSetRole(uid, role){
+  if (isAdminUid(uid)) return;
   try { await getAuthDb().collection('users').doc(uid).update({ role: role }); }
   catch(e){ alert(e.message); }
 }
 async function usrSetTest(uid, checked){
+  if (isAdminUid(uid)) return;
   try { await getAuthDb().collection('users').doc(uid).update({ isTestUser: !!checked }); }
   catch(e){ alert(e.message); }
 }
+function isAdminUid(uid){
+  const row = (window.__usrRows||[]).find(r => r.id===uid);
+  return !!row && (row.email || '').toLowerCase() === PS_ADMIN_EMAIL.toLowerCase();
+}
+
 async function usrDelete(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist geschützt und kann hier nicht gelöscht werden.');
   const row = (window.__usrRows||[]).find(r => r.id===uid);
   const name = row ? (row.name || ((row.vorname||'')+' '+(row.nachname||'')).trim() || row.email) : 'diesen Nutzer';
   if (!confirm('Nutzer „'+name+'\u201c wirklich löschen?\n\nDer Datensatz wird entfernt. Das Login-Konto in Firebase Authentication bleibt bestehen und muss dort separat gelöscht werden.')) return;
@@ -1317,6 +1405,8 @@ function fillShopSuggestions(){
     dl.innerHTML = shops.map(s => '<option value="'+esc(s)+'">').join('');
   } catch(e){}
 }
+
+restoreAdminSession();
 
 </script>
 </body>
