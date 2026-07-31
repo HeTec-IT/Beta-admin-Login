@@ -9,8 +9,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<!-- MANUELLE BENUTZERANLAGE: für sichere Cloud Functions (Benutzeranlage, Passwortänderung, Sperren, Löschen) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh}
@@ -201,14 +199,9 @@
   <div class="card" id="inviteCard">
     <h2>👥 Mitarbeiterverwaltung</h2>
     <div class="hint">
-      Es gibt keine Selbstregistrierung mehr. Konten werden ausschließlich hier angelegt - der Mitarbeiter
-      erhält ein einmaliges temporäres Passwort und muss beim ersten Login ein eigenes festlegen.
-      Bestandsmitarbeiter mit „Neu / wartet auf Freigabe" aus der alten Selbstregistrierung bitte löschen
-      und über „Neuen Mitarbeiter anlegen" sauber neu anlegen.
-    </div>
-
-    <div style="margin-bottom:16px">
-      <button class="btn" onclick="openNewEmployeeDialog()">👤 Neuen Mitarbeiter anlegen</button>
+      Mitarbeiter registrieren sich selbst direkt in Pencil Selling (Name, E-Mail, Passwort, Shop-Auswahl).
+      Hier siehst du alle Registrierungen, gibst neue Anfragen frei und kannst Shop, Rolle, Testnutzer-Kennzeichen
+      oder Status jederzeit ändern.
     </div>
 
     <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -216,10 +209,10 @@
       <div style="flex:1"></div>
       <select id="usrTab" onchange="renderUsers()">
         <option value="all">Alle</option>
+        <option value="pending">Neu / wartet auf Freigabe</option>
         <option value="approved">Freigegeben</option>
-        <option value="blocked">Gesperrt</option>
-        <option value="pending">Alt: wartet auf Freigabe</option>
-        <option value="rejected">Alt: Abgelehnt</option>
+        <option value="rejected">Abgelehnt</option>
+        <option value="gesperrt">Gesperrt</option>
       </select>
       <button class="btn btn-ghost btn-sm" onclick="loadUsers()">↻ Aktualisieren</button>
     </div>
@@ -332,74 +325,6 @@
     <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;flex-wrap:wrap">
       <button class="btn btn-ghost" id="ownDeleteCancelBtn" onclick="closeOwnAccountDeleteDialog()">Abbrechen</button>
       <button class="btn btn-danger" id="ownDeleteConfirmBtn" onclick="deleteOwnAdminTestAccount()">🗑 Konto endgültig löschen</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MANUELLE BENUTZERANLAGE: Neuen Mitarbeiter anlegen ══ -->
-<div id="newEmployeeModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.68);align-items:center;justify-content:center;padding:18px">
-  <div style="width:100%;max-width:480px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.38);max-height:92vh;overflow:auto">
-    <div style="font-size:17px;font-weight:900;color:#0f172a;margin-bottom:4px">👤 Neuen Mitarbeiter anlegen</div>
-    <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-bottom:18px">Der Mitarbeiter erhält ein einmaliges temporäres Passwort und muss es beim ersten Login durch ein eigenes ersetzen.</div>
-
-    <label class="flabel">Anrede</label>
-    <select id="neAnrede" style="width:100%;margin-bottom:12px">
-      <option value="">Anrede wählen…</option>
-      <option value="Herr">Herr</option>
-      <option value="Frau">Frau</option>
-      <option value="Divers">Divers</option>
-    </select>
-
-    <label class="flabel" for="neVorname">Vorname</label>
-    <input type="text" id="neVorname" placeholder="Vorname (optional)" style="margin-bottom:12px">
-
-    <label class="flabel" for="neNachname">Nachname</label>
-    <input type="text" id="neNachname" placeholder="Nachname" style="margin-bottom:12px">
-
-    <label class="flabel" for="neEmail">Firmen-E-Mail-Adresse</label>
-    <input type="text" id="neEmail" placeholder="vorname.nachname@hetec-gmbh.de" style="margin-bottom:12px">
-
-    <label class="flabel">Hauptshop</label>
-    <select id="neShop" style="width:100%;margin-bottom:12px"></select>
-
-    <label class="flabel">Rolle</label>
-    <select id="neRole" style="width:100%;margin-bottom:12px">
-      <option value="verkaeufer" selected>Verkäufer</option>
-      <option value="filialleiter">Filialleiter</option>
-    </select>
-
-    <label class="flabel">Zusätzliche Standorte (optional)</label>
-    <div id="neExtraShops" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px"></div>
-
-    <div id="neErr" class="msg err" style="display:none;margin-top:10px"></div>
-
-    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;flex-wrap:wrap">
-      <button class="btn btn-ghost" id="neCancelBtn" onclick="closeNewEmployeeDialog()">Abbrechen</button>
-      <button class="btn" id="neSubmitBtn" onclick="submitNewEmployee()">Mitarbeiter anlegen</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MANUELLE BENUTZERANLAGE: Zugangsdaten einmalig anzeigen (Neuanlage & Passwort-Reset) ══ -->
-<div id="newEmployeeSuccessModal" style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(15,23,42,.68);align-items:center;justify-content:center;padding:18px">
-  <div style="width:100%;max-width:440px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.38)">
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:13px;background:#f0fdf4;font-size:23px;flex-shrink:0">✅</div>
-      <div>
-        <div style="font-size:16px;font-weight:900;color:#15803d" id="neResultTitle">Mitarbeiter wurde erfolgreich angelegt</div>
-        <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-top:4px">Dieses Passwort wird nur jetzt einmal angezeigt und danach nirgendwo gespeichert.</div>
-      </div>
-    </div>
-
-    <label class="flabel">E-Mail</label>
-    <div style="padding:10px 13px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:12px;word-break:break-all" id="neResultEmail"></div>
-
-    <label class="flabel">Temporäres Passwort</label>
-    <div style="padding:10px 13px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;font-size:15px;font-weight:900;letter-spacing:.03em;color:#1d4ed8;margin-bottom:16px;word-break:break-all" id="neResultPw"></div>
-
-    <div style="display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="closeNewEmployeeSuccessDialog()">Schließen</button>
-      <button class="btn" onclick="copyNewEmployeeCredentials()">📋 Zugangsdaten kopieren</button>
     </div>
   </div>
 </div>
@@ -1284,10 +1209,6 @@ function getAuthDb(){
 function getAdminAuth(){
   return firebase.auth(getAuthApp());
 }
-// MANUELLE BENUTZERANLAGE: Region MUSS zur REGION-Konstante in functions/index.js passen.
-function getAuthFunctions(){
-  return getAuthApp().functions('europe-west3');
-}
 
 // Erstellt das Firestore-Profil des Administrators automatisch, falls es fehlt.
 // Firebase Authentication allein erzeugt kein Dokument in users/{uid}.
@@ -1313,7 +1234,6 @@ async function ensureAdminProfile(){
       active: true,
       status: 'approved',
       isTestUser: false,
-      mustChangePassword: false,
       shopId: '',
       shop: 'Verwaltung / Alle Shops',
       createdAt: serverNow,
@@ -1327,7 +1247,6 @@ async function ensureAdminProfile(){
       active: true,
       status: 'approved',
       isTestUser: false,
-      mustChangePassword: false,
       updatedAt: serverNow
     };
     if (!data.name) patch.name = 'Diego da Silva';
@@ -1401,10 +1320,9 @@ async function loadUsers(){
 
 function usrBadge(status){
   const m = {
-    pending:  ['Alt: Neu','#fef9c3','#a16207'],
+    pending:  ['Neu','#fef9c3','#a16207'],
     approved: ['Freigegeben','#dcfce7','#15803d'],
-    rejected: ['Alt: Abgelehnt','#fee2e2','#b91c1c'],
-    blocked:  ['Gesperrt','#fee2e2','#b91c1c'],
+    rejected: ['Abgelehnt','#fee2e2','#b91c1c'],
     gesperrt: ['Gesperrt','#fee2e2','#b91c1c']
   }[status] || ['—','#f1f5f9','#64748b'];
   return '<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:'+m[1]+';color:'+m[2]+';margin-right:6px">'+m[0]+'</span>';
@@ -1414,11 +1332,7 @@ function renderUsers(){
   const rows = window.__usrRows || [];
   const tab = (document.getElementById('usrTab')||{}).value || 'all';
   const filtered = rows
-    .filter(r => {
-      if (tab === 'all') return true;
-      if (tab === 'blocked') return r.status === 'blocked' || r.status === 'gesperrt';
-      return r.status === tab;
-    })
+    .filter(r => tab==='all' ? true : r.status===tab)
     .sort((a,b) => {
       const rank = s => s==='pending' ? 0 : 1;
       const d = rank(a.status) - rank(b.status);
@@ -1460,7 +1374,7 @@ function renderUsers(){
       +   '<div style="font-weight:800;font-size:14px;color:#0f172a">'+(name||'–')+'</div>'
       +   '<div style="font-size:12.5px;color:#475569;margin:2px 0 6px">'+esc(r.email||'—')+'</div>'
       +   '<div>'+usrBadge(r.status)+(isProtectedAdmin?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8">Administrator · geschützt</span>':(r.isTestUser?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9">Testnutzer</span>':''))+'</div>'
-      +   '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Angelegt: '+fmtWhen(r.createdAt)+'</div>'
+      +   '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Registriert: '+fmtWhen(r.createdAt)+'</div>'
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +   (isProtectedAdmin
@@ -1472,10 +1386,9 @@ function renderUsers(){
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
       +   (isProtectedAdmin
             ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Nicht deaktivierbar</span>' + '<button class="btn btn-sm btn-danger" onclick="openOwnAccountDeleteDialog()">🗑 Eigenes Testkonto löschen</button>'
-            : ((r.status==='blocked'||r.status==='gesperrt')
-                ? '<button class="btn btn-sm" onclick="usrUnlock(\'' + r.id + '\')">🔓 Entsperren</button>'
-                : '<button class="btn btn-sm btn-danger" onclick="usrLock(\'' + r.id + '\')">🔒 Sperren</button>')
-              + '<button class="btn btn-sm btn-ghost" onclick="usrResetPassword(\'' + r.id + '\')">🔑 Passwort zurücksetzen</button>'
+            : (!r.active ? '<button class="btn btn-sm" onclick="usrApprove(\'' + r.id + '\')">Freigeben</button>' : '')
+              + (r.status==='pending' ? '<button class="btn btn-sm btn-danger" onclick="usrReject(\'' + r.id + '\')">Ablehnen</button>' : '')
+              + (r.active ? '<button class="btn btn-sm btn-danger" onclick="usrDeactivate(\'' + r.id + '\')">Deaktivieren</button>' : '')
               + '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>')
       + '</div>'
       + '</div>'
@@ -1492,38 +1405,20 @@ function renderUsers(){
   box.innerHTML = h;
 }
 
-// MANUELLE BENUTZERANLAGE: Sperren/Entsperren laufen über die Cloud Function
-// 'setEmployeeLock', damit dabei serverseitig auch die Firebase-Refresh-
-// Tokens widerrufen (und das Auth-Konto disabled/enabled) werden - das kann
-// ein reiner Firestore-Write vom Client aus nicht.
-async function usrLock(uid){
-  if (isAdminUid(uid)) return alert('Das Administrator-Konto kann nicht gesperrt werden.');
-  const row = (window.__usrRows||[]).find(r => r.id===uid);
-  const name = row ? (row.name || row.email || 'diesen Mitarbeiter') : 'diesen Mitarbeiter';
-  if (!confirm('„'+name+'" wirklich sperren?\n\nDer Zugang zum Pencil Selling wird sofort entzogen.')) return;
-  try { await getAuthFunctions().httpsCallable('setEmployeeLock')({ uid, action: 'block' }); await loadUsers(); }
-  catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+async function usrApprove(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist bereits freigegeben.');
+  try { await getAuthDb().collection('users').doc(uid).update({ active:true, status:'approved' }); loadUsers(); }
+  catch(e){ alert(e.message); }
 }
-async function usrUnlock(uid){
-  if (isAdminUid(uid)) return;
-  try { await getAuthFunctions().httpsCallable('setEmployeeLock')({ uid, action: 'unblock' }); await loadUsers(); }
-  catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+async function usrReject(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto kann nicht abgelehnt werden.');
+  try { await getAuthDb().collection('users').doc(uid).update({ active:false, status:'rejected' }); loadUsers(); }
+  catch(e){ alert(e.message); }
 }
-// Erzeugt ein neues temporäres Passwort über die Cloud Function
-// 'resetEmployeePassword' und zeigt es einmalig im selben Erfolgs-Dialog wie
-// bei der Neuanlage an. mustChangePassword wird dabei serverseitig wieder
-// auf true gesetzt - der Mitarbeiter muss beim nächsten Login ein eigenes
-// Passwort festlegen.
-async function usrResetPassword(uid){
-  if (isAdminUid(uid)) return;
-  const row = (window.__usrRows||[]).find(r => r.id===uid);
-  const name = row ? (row.name || row.email || 'diesen Mitarbeiter') : 'diesen Mitarbeiter';
-  if (!confirm('Neues temporäres Passwort für „'+name+'" erzeugen?\n\nDas bisherige Passwort wird sofort ungültig.')) return;
-  try {
-    const res = await getAuthFunctions().httpsCallable('resetEmployeePassword')({ uid });
-    showCredentialsResult('Passwort wurde zurückgesetzt', (row && row.email) || '', res.data.temporaryPassword);
-    await loadUsers();
-  } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+async function usrDeactivate(uid){
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto kann nicht deaktiviert werden.');
+  try { await getAuthDb().collection('users').doc(uid).update({ active:false, status:'gesperrt' }); loadUsers(); }
+  catch(e){ alert(e.message); }
 }
 async function usrSetShop(uid, shopId){
   if (isAdminUid(uid)) return;
@@ -1719,132 +1614,12 @@ async function usrDelete(uid){
   if (isAdminUid(uid)) return alert('Das Administrator-Konto ist geschützt und kann hier nicht gelöscht werden.');
   const row = (window.__usrRows||[]).find(r => r.id===uid);
   const name = row ? (row.name || ((row.vorname||'')+' '+(row.nachname||'')).trim() || row.email) : 'diesen Nutzer';
-  if (!confirm('Mitarbeiter „'+name+'\u201c wirklich dauerhaft löschen?\n\nDer Mitarbeiter verliert sofort seinen Zugang.\nDieser Vorgang kann nicht rückgängig gemacht werden.')) return;
-  try { await getAuthFunctions().httpsCallable('deleteEmployee')({ uid }); await loadUsers(); }
-  catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+  if (!confirm('Nutzer „'+name+'\u201c wirklich löschen?\n\nDer Datensatz wird entfernt. Das Login-Konto in Firebase Authentication bleibt bestehen und muss dort separat gelöscht werden.')) return;
+  try { await getAuthDb().collection('users').doc(uid).delete(); loadUsers(); }
+  catch(e){ alert(e.message); }
 }
 
 // Shop-Vorschläge aus vorhandenen Beratungsdaten füllen (sobald Stats geladen sind)
-// ══════════════════════════════════════════════════════════════════
-//  MANUELLE BENUTZERANLAGE: Neuen Mitarbeiter anlegen (Dialog + Cloud
-//  Function 'createEmployee') und gemeinsame Zugangsdaten-Anzeige, die auch
-//  von usrResetPassword() weiterverwendet wird.
-// ══════════════════════════════════════════════════════════════════
-
-// Beste Schätzung der Anmeldeseite: gleiches Verzeichnis wie Admin.html,
-// Dateiname 'index.html'. Falls Pencil Selling unter einer anderen URL
-// liegt, hier einfach eine feste URL eintragen, z.B.:
-// const PENCIL_SELLING_URL = 'https://hetec-it.github.io/PS-Dashboard/';
-const PENCIL_SELLING_URL = new URL('index.html', location.href).toString();
-
-let newEmployeeBusy = false;
-let lastCredentials = null; // SICHERHEIT: nur im Speicher, nie in Firestore/localStorage/Logs
-
-function openNewEmployeeDialog(){
-  document.getElementById('neAnrede').value = '';
-  document.getElementById('neVorname').value = '';
-  document.getElementById('neNachname').value = '';
-  document.getElementById('neEmail').value = '';
-  document.getElementById('neRole').value = 'verkaeufer';
-  const shopSel = document.getElementById('neShop');
-  shopSel.innerHTML = Object.keys(SHOP_NAMES).map(id => '<option value="'+id+'">'+SHOP_NAMES[id]+'</option>').join('');
-  refreshNeExtraShops();
-  shopSel.onchange = refreshNeExtraShops;
-  document.getElementById('neErr').style.display = 'none';
-  const modal = document.getElementById('newEmployeeModal');
-  modal.style.display = 'flex';
-  setTimeout(() => { try { document.getElementById('neNachname').focus(); } catch(e){} }, 50);
-}
-function refreshNeExtraShops(){
-  const mainShop = document.getElementById('neShop').value;
-  const box = document.getElementById('neExtraShops');
-  box.innerHTML = Object.keys(SHOP_NAMES).filter(id => id !== mainShop).map(id =>
-    '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1.5px solid #e2e8f0;padding:6px 10px;border-radius:9px;cursor:pointer">'
-    + '<input type="checkbox" class="ne-extra-shop" value="'+id+'" style="width:14px;height:14px;cursor:pointer">'
-    + SHOP_NAMES[id] + '</label>'
-  ).join('');
-}
-function closeNewEmployeeDialog(){
-  if (newEmployeeBusy) return;
-  document.getElementById('newEmployeeModal').style.display = 'none';
-}
-
-async function submitNewEmployee(){
-  if (newEmployeeBusy) return;
-  const anrede = document.getElementById('neAnrede').value;
-  const vorname = document.getElementById('neVorname').value.trim();
-  const nachname = document.getElementById('neNachname').value.trim();
-  const email = document.getElementById('neEmail').value.trim().toLowerCase();
-  const shopId = document.getElementById('neShop').value;
-  const role = document.getElementById('neRole').value;
-  const extraShopIds = Array.from(document.querySelectorAll('.ne-extra-shop:checked')).map(el => el.value);
-  const errBox = document.getElementById('neErr');
-  errBox.style.display = 'none';
-
-  if (!nachname || !email || !shopId){
-    errBox.textContent = 'Bitte mindestens Nachname, E-Mail und Hauptshop ausfüllen.';
-    errBox.style.display = 'block';
-    return;
-  }
-  if (!/@hetec-gmbh\.de$/i.test(email)){
-    errBox.textContent = 'Nur E-Mail-Adressen mit @hetec-gmbh.de erlaubt.';
-    errBox.style.display = 'block';
-    return;
-  }
-
-  newEmployeeBusy = true;
-  const btn = document.getElementById('neSubmitBtn');
-  const cancelBtn = document.getElementById('neCancelBtn');
-  btn.disabled = true; btn.textContent = 'Lege an…';
-  if (cancelBtn) cancelBtn.disabled = true;
-
-  try {
-    const res = await getAuthFunctions().httpsCallable('createEmployee')({
-      anrede, vorname, nachname, email,
-      shopId, shopName: SHOP_NAMES[shopId] || '',
-      extraShopIds, role
-    });
-    document.getElementById('newEmployeeModal').style.display = 'none';
-    showCredentialsResult('Mitarbeiter wurde erfolgreich angelegt', res.data.email, res.data.temporaryPassword);
-    await loadUsers();
-  } catch(e){
-    errBox.textContent = 'Fehler: ' + (e && e.message || e);
-    errBox.style.display = 'block';
-  } finally {
-    newEmployeeBusy = false;
-    btn.disabled = false; btn.textContent = 'Mitarbeiter anlegen';
-    if (cancelBtn) cancelBtn.disabled = false;
-  }
-}
-
-// Gemeinsame Anzeige für Neuanlage (createEmployee) und Passwort-Reset
-// (resetEmployeePassword) - das temporäre Passwort wird nur dieses eine Mal
-// angezeigt und ist nach dem Schließen des Fensters nicht mehr abrufbar.
-function showCredentialsResult(title, email, temporaryPassword){
-  lastCredentials = { email: email || '', password: temporaryPassword || '' };
-  document.getElementById('neResultTitle').textContent = title;
-  document.getElementById('neResultEmail').textContent = email || '—';
-  document.getElementById('neResultPw').textContent = temporaryPassword || '—';
-  document.getElementById('newEmployeeSuccessModal').style.display = 'flex';
-}
-function closeNewEmployeeSuccessDialog(){
-  lastCredentials = null; // SICHERHEIT: Passwort nach dem Schließen nicht mehr abrufbar
-  document.getElementById('neResultPw').textContent = '';
-  document.getElementById('newEmployeeSuccessModal').style.display = 'none';
-}
-function copyNewEmployeeCredentials(){
-  if (!lastCredentials) return;
-  const text = 'Hallo,\n\ndein Zugang zum Pencil Selling wurde eingerichtet.\n\nAnmeldeseite:\n' + PENCIL_SELLING_URL +
-    '\n\nE-Mail:\n' + lastCredentials.email + '\n\nTemporäres Passwort:\n' + lastCredentials.password +
-    '\n\nBeim ersten Login musst du ein persönliches Passwort festlegen.';
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(() => alert('Zugangsdaten wurden in die Zwischenablage kopiert.'))
-      .catch(() => prompt('Kopieren fehlgeschlagen - bitte manuell markieren und kopieren:', text));
-  } else {
-    prompt('Bitte manuell markieren und kopieren:', text);
-  }
-}
-
 function fillShopSuggestions(){
   try {
     const dl = document.getElementById('shopList');
