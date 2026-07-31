@@ -1430,44 +1430,53 @@ async function prepareEmployeeAccess(){
   try {
     const db = getAuthDb();
     const now = firebase.firestore.FieldValue.serverTimestamp();
-    const existing = await db.collection('users').where('email', '==', d.email).limit(1).get();
+    // Ein Auth-Benutzer erhält beim Löschen und erneuten Anlegen eine neue UID.
+    // Deshalb vorhandene Firestore-Profile aktualisieren UND immer einen
+    // Vorbereitungseintrag hinterlegen. Beim nächsten Login kann sich das
+    // aktuell verwendete Authentication-Konto dadurch sicher mit seiner
+    // jetzigen UID verknüpfen.
+    const existing = await db.collection('users').where('email', '==', d.email).get();
+    const profilePatch = {
+      email: d.email,
+      vorname: d.vorname,
+      nachname: d.nachname,
+      name: d.name,
+      role: d.role,
+      active: true,
+      status: 'approved',
+      shopId: d.shopId,
+      shop: d.shop,
+      isSpringer: d.isSpringer,
+      updatedAt: now
+    };
 
     if (!existing.empty){
-      const ref = existing.docs[0].ref;
-      await ref.set({
-        email: d.email,
-        vorname: d.vorname,
-        nachname: d.nachname,
-        name: d.name,
-        role: d.role,
-        active: true,
-        status: 'approved',
-        shopId: d.shopId,
-        shop: d.shop,
-        isSpringer: d.isSpringer,
-        updatedAt: now
-      }, { merge: true });
-      await db.collection('user_setups').doc(d.email).delete().catch(() => {});
-      showSetupMessage('Der bestehende Mitarbeiter wurde sofort aktualisiert und aktiviert. Das Passwort musst du nur ändern, falls du es auch in Firebase Authentication neu setzt.', true);
-    } else {
-      await db.collection('user_setups').doc(d.email).set({
-        email: d.email,
-        vorname: d.vorname,
-        nachname: d.nachname,
-        name: d.name,
-        role: d.role,
-        active: true,
-        status: 'approved',
-        shopId: d.shopId,
-        shop: d.shop,
-        extraShopIds: [],
-        isSpringer: d.isSpringer,
-        isTestUser: false,
-        createdAt: now,
-        updatedAt: now
-      });
-      showSetupMessage('Zugang vorbereitet. Jetzt Zugangsdaten kopieren und den Benutzer mit derselben E-Mail und demselben Passwort in Firebase Authentication anlegen.', true);
+      await Promise.all(existing.docs.map(doc => doc.ref.set(profilePatch, { merge: true })));
     }
+
+    await db.collection('user_setups').doc(d.email).set({
+      email: d.email,
+      vorname: d.vorname,
+      nachname: d.nachname,
+      name: d.name,
+      role: d.role,
+      active: true,
+      status: 'approved',
+      shopId: d.shopId,
+      shop: d.shop,
+      extraShopIds: [],
+      isSpringer: d.isSpringer,
+      isTestUser: false,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    showSetupMessage(
+      existing.empty
+        ? 'Zugang vorbereitet. Jetzt denselben Benutzer in Firebase Authentication anlegen. Beim ersten Login wird er automatisch mit seiner Nutzer-UID verknüpft.'
+        : 'Mitarbeiter aktualisiert und für die aktuelle Firebase-Nutzer-UID vorbereitet. Jetzt kann er sich anmelden; eine Freigabe ist nicht nötig.',
+      true
+    );
     await loadUsers();
   } catch(e){
     showSetupMessage('Fehler: ' + (e && e.message || e), false);
