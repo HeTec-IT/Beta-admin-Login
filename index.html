@@ -199,11 +199,12 @@
   <div class="card" id="inviteCard">
     <h2>👥 Neuen Mitarbeiter vorbereiten</h2>
     <div class="hint">
-      Vorname, Nachname, E-Mail und Shop hier eintragen. Das Admin-Dashboard erzeugt ein
-      zufälliges Passwort mit genau 6 Zeichen. Danach die Zugangsdaten kopieren und denselben
-      Benutzer einmal unter <b>Firebase → Authentication → Users</b> anlegen. Beim ersten Login
-      wird der Zugang automatisch aktiviert – ohne Freigabe-Schritt. Der vollständige Name wird
-      im Pencil Selling als Shop-Agent übernommen.
+      Vorname, Nachname, E-Mail und Hauptshop hier eintragen. Für Mitarbeiter, die in allen
+      Filialen eingesetzt werden, zusätzlich <b>„Springer – alle Shops“</b> aktivieren. Das
+      Admin-Dashboard erzeugt ein zufälliges Passwort mit genau 6 Zeichen. Danach die Zugangsdaten
+      kopieren und denselben Benutzer einmal unter <b>Firebase → Authentication → Users</b> anlegen.
+      Beim ersten Login wird der Zugang automatisch aktiviert – ohne Freigabe-Schritt. Der
+      vollständige Name wird im Pencil Selling als Shop-Agent übernommen.
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px">
@@ -239,6 +240,13 @@
           <button type="button" class="btn btn-ghost btn-sm" onclick="generateRandomPassword()" title="Neues Passwort erzeugen">↻ Neu</button>
         </div>
         <div style="font-size:10.5px;color:#64748b;margin-top:5px">Enthält 1 Großbuchstaben, 1 Zahl und „!“.</div>
+      </div>
+      <div>
+        <label class="flabel">Einsatzbereich</label>
+        <label style="min-height:50px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:12px;background:#f8fafc;cursor:pointer">
+          <input id="newSpringer" type="checkbox" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">
+          <span style="line-height:1.25"><b style="font-size:13px;color:#0f172a">Springer – alle Shops</b><br><span style="font-size:10.5px;color:#64748b">Kann im Pencil Selling jeden Shop auswählen.</span></span>
+        </label>
       </div>
     </div>
 
@@ -1383,6 +1391,7 @@ function readNewEmployeeForm(){
   const email = (document.getElementById('newEmail').value || '').trim().toLowerCase();
   const shopId = document.getElementById('newShop').value || '';
   const role = document.getElementById('newRole').value || 'verkaeufer';
+  const isSpringer = !!(document.getElementById('newSpringer') && document.getElementById('newSpringer').checked);
   const password = (document.getElementById('newPassword').value || '').trim();
   return {
     vorname,
@@ -1392,6 +1401,7 @@ function readNewEmployeeForm(){
     shopId,
     shop: shopId ? (SHOP_NAMES[shopId] || '') : '',
     role,
+    isSpringer,
     password
   };
 }
@@ -1434,6 +1444,7 @@ async function prepareEmployeeAccess(){
         status: 'approved',
         shopId: d.shopId,
         shop: d.shop,
+        isSpringer: d.isSpringer,
         updatedAt: now
       }, { merge: true });
       await db.collection('user_setups').doc(d.email).delete().catch(() => {});
@@ -1450,6 +1461,7 @@ async function prepareEmployeeAccess(){
         shopId: d.shopId,
         shop: d.shop,
         extraShopIds: [],
+        isSpringer: d.isSpringer,
         isTestUser: false,
         createdAt: now,
         updatedAt: now
@@ -1482,6 +1494,7 @@ function copyEmployeeCredentials(){
     'Pencil Selling Zugang',
     'Name: ' + d.name,
     'Shop: ' + d.shop,
+    'Einsatz: ' + (d.isSpringer ? 'Springer – alle Shops' : 'Stationär – nur freigegebene Shops'),
     'Link: ' + PENCIL_SELLING_URL,
     'E-Mail: ' + d.email,
     'Passwort: ' + d.password
@@ -1503,7 +1516,7 @@ function renderPreparedSetups(){
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 12px;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:8px;background:#f8fafc">' +
       '<div style="flex:1;min-width:210px">' +
         '<div style="font-size:13.5px;font-weight:900">' + esc(r.name || ((r.vorname||'')+' '+(r.nachname||'')).trim() || '—') + '</div>' +
-        '<div style="font-size:12px;color:#64748b">' + esc(r.email || '') + ' · ' + esc(r.shop || SHOP_NAMES[r.shopId] || 'Kein Shop') + '</div>' +
+        '<div style="font-size:12px;color:#64748b">' + esc(r.email || '') + ' · ' + esc(r.shop || SHOP_NAMES[r.shopId] || 'Kein Shop') + (r.isSpringer === true ? ' · 🌍 Springer (alle Shops)' : '') + '</div>' +
       '</div>' +
       '<span style="font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8">Für Authentication vorbereitet</span>' +
       '<button class="btn btn-sm btn-danger" onclick="deletePreparedSetup(\'' + String(r.email || r.id).replace(/'/g, "\\'") + '\')">Verwerfen</button>' +
@@ -1591,15 +1604,18 @@ function renderUsers(){
       '<option value="'+id+'"'+(id===r.role?' selected':'')+'>'+ROLE_NAMES[id]+'</option>'
     ).join('');
 
+    const isSpringer = r.isSpringer === true;
     const extraIds = Array.isArray(r.extraShopIds) ? r.extraShopIds : [];
     const extraN = extraIds.length;
-    const extraBadgeTxt = extraN ? '🌍 '+extraN+' weitere'+(extraN===1?'r':'')+' Standort'+(extraN===1?'':'e') : '🔒 Stationär';
-    const extraBadgeCss = extraN ? 'color:#15803d;background:#dcfce7' : 'color:#9a3412;background:#fff7ed';
-    const extraChecks = Object.keys(SHOP_NAMES).filter(id => id !== r.shopId).map(id =>
-      '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1.5px solid #e2e8f0;padding:6px 10px;border-radius:9px;cursor:pointer">'
-      + '<input type="checkbox" onchange="usrToggleExtraShop(\''+r.id+'\',\''+id+'\',this.checked)" '+(extraIds.includes(id)?'checked':'')+' style="width:14px;height:14px;cursor:pointer">'
-      + SHOP_NAMES[id] + '</label>'
-    ).join('');
+    const extraBadgeTxt = isSpringer ? '🌍 Springer · alle Shops' : (extraN ? '🌍 '+extraN+' weitere'+(extraN===1?'r':'')+' Standort'+(extraN===1?'':'e') : '🔒 Stationär');
+    const extraBadgeCss = isSpringer ? 'color:#1d4ed8;background:#dbeafe' : (extraN ? 'color:#15803d;background:#dcfce7' : 'color:#9a3412;background:#fff7ed');
+    const extraChecks = isSpringer
+      ? '<span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1.5px solid #bfdbfe;padding:7px 10px;border-radius:9px">Als Springer sind automatisch alle Shops freigegeben.</span>'
+      : Object.keys(SHOP_NAMES).filter(id => id !== r.shopId).map(id =>
+          '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1.5px solid #e2e8f0;padding:6px 10px;border-radius:9px;cursor:pointer">'
+          + '<input type="checkbox" onchange="usrToggleExtraShop(\''+r.id+'\',\''+id+'\',this.checked)" '+(extraIds.includes(id)?'checked':'')+' style="width:14px;height:14px;cursor:pointer">'
+          + SHOP_NAMES[id] + '</label>'
+        ).join('');
 
     const blocked = r.status === 'blocked' || r.status === 'gesperrt';
     const active = r.active === true && r.status === 'approved' && !!r.shopId && !blocked;
@@ -1624,6 +1640,7 @@ function renderUsers(){
             ? '<span style="font-size:12.5px;font-weight:700;color:#1e40af;padding:9px 12px;background:#dbeafe;border-radius:10px">🏢 Verwaltung / Alle Shops</span><span style="font-size:12.5px;font-weight:700;color:#1e40af;padding:9px 12px;background:#dbeafe;border-radius:10px">Administrator</span>'
             : '<select onchange="usrSetShop(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+shopOpts+'</select>'
               + '<select onchange="usrSetRole(\'' + r.id + '\',this.value)" style="font-size:12.5px">'+roleOpts+'</select>'
+              + '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:7px 9px;border-radius:9px;cursor:pointer"><input type="checkbox" onchange="usrSetSpringer(\'' + r.id + '\',this.checked)" '+(isSpringer?'checked':'')+' style="width:15px;height:15px;cursor:pointer">Springer · alle Shops</label>'
               + '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#64748b;cursor:pointer"><input type="checkbox" onchange="usrSetTest(\'' + r.id + '\',this.checked)" '+(r.isTestUser?'checked':'')+' style="width:15px;height:15px;cursor:pointer">Test</label>')
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
@@ -1641,7 +1658,7 @@ function renderUsers(){
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
         +   '<span id="extraBadge-'+r.id+'" style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;'+extraBadgeCss+'">'+extraBadgeTxt+'</span>'
-        +   '<button type="button" class="linklike" onclick="toggleExtraPanel(\''+r.id+'\')">Weitere Standorte verwalten</button>'
+        +   (isSpringer ? '<span style="font-size:11px;color:#64748b">Shop-Auswahl ist vollständig geöffnet.</span>' : '<button type="button" class="linklike" onclick="toggleExtraPanel(\''+r.id+'\')">Weitere Standorte verwalten</button>')
         + '</div>'
         + '<div id="extra-'+r.id+'" style="display:none;flex-wrap:wrap;gap:7px;margin-top:9px">'+extraChecks+'</div>'
         + '</div>')
@@ -1728,6 +1745,17 @@ async function usrSetTest(uid, checked){
   catch(e){ alert(e.message); }
 }
 
+async function usrSetSpringer(uid, checked){
+  if (isAdminUid(uid)) return;
+  try {
+    await getAuthDb().collection('users').doc(uid).update({
+      isSpringer: !!checked,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await loadUsers();
+  } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+}
+
 function toggleExtraPanel(uid){
   const el = document.getElementById('extra-'+uid);
   if (!el) return;
@@ -1739,9 +1767,15 @@ function updateExtraBadge(uid){
   const el = document.getElementById('extraBadge-'+uid);
   if (!row || !el) return;
   const n = (row.extraShopIds||[]).length;
-  el.textContent = n ? '🌍 '+n+' weitere'+(n===1?'r':'')+' Standort'+(n===1?'':'e') : '🔒 Stationär';
-  el.style.background = n ? '#dcfce7' : '#fff7ed';
-  el.style.color = n ? '#15803d' : '#9a3412';
+  if (row.isSpringer === true) {
+    el.textContent = '🌍 Springer · alle Shops';
+    el.style.background = '#dbeafe';
+    el.style.color = '#1d4ed8';
+  } else {
+    el.textContent = n ? '🌍 '+n+' weitere'+(n===1?'r':'')+' Standort'+(n===1?'':'e') : '🔒 Stationär';
+    el.style.background = n ? '#dcfce7' : '#fff7ed';
+    el.style.color = n ? '#15803d' : '#9a3412';
+  }
 }
 
 // Freigabe weiterer Standorte: ohne Eintrag bleibt der Mitarbeiter stationär
