@@ -9,8 +9,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<!-- MANUELLE BENUTZERANLAGE: für sichere Cloud Functions (Benutzeranlage, Passwortänderung, Sperren, Löschen) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh}
@@ -21,7 +19,7 @@
   .loginbox{background:#fff;border-radius:22px;padding:34px 30px;width:100%;max-width:380px;box-shadow:0 25px 70px rgba(0,0,0,.35);text-align:center}
   .loginbox h1{font-size:21px;font-weight:900;margin-bottom:6px}
   .loginbox p{font-size:13px;color:#64748b;margin-bottom:22px}
-  input[type=password],input[type=text],input[type=date],textarea{width:100%;padding:13px 15px;font-size:15px;border:2px solid #e2e8f0;border-radius:12px;outline:none;font-family:inherit;transition:border-color .15s}
+  input[type=password],input[type=text],input[type=email],input[type=date],textarea{width:100%;padding:13px 15px;font-size:15px;border:2px solid #e2e8f0;border-radius:12px;outline:none;font-family:inherit;transition:border-color .15s}
   input:focus,textarea:focus{border-color:#2563eb}
   .btn{padding:13px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;transition:transform .1s,box-shadow .15s;box-shadow:0 4px 14px rgba(37,99,235,.3)}
   .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(37,99,235,.4)}
@@ -199,27 +197,75 @@
   <div class="tabpanel" data-panel="mitarbeiterverwaltung">
   <!-- ══════════ MITARBEITERVERWALTUNG ══════════ -->
   <div class="card" id="inviteCard">
-    <h2>👥 Mitarbeiterverwaltung</h2>
+    <h2>👥 Neuen Mitarbeiter vorbereiten</h2>
     <div class="hint">
-      Es gibt keine Selbstregistrierung mehr. Konten werden ausschließlich hier angelegt - der Mitarbeiter
-      erhält ein einmaliges temporäres Passwort und muss beim ersten Login ein eigenes festlegen.
-      Bestandsmitarbeiter mit „Neu / wartet auf Freigabe" aus der alten Selbstregistrierung bitte löschen
-      und über „Neuen Mitarbeiter anlegen" sauber neu anlegen.
+      Vorname, Nachname, E-Mail und Shop hier eintragen. Das Admin-Dashboard erzeugt ein
+      zufälliges Passwort mit genau 6 Zeichen. Danach die Zugangsdaten kopieren und denselben
+      Benutzer einmal unter <b>Firebase → Authentication → Users</b> anlegen. Beim ersten Login
+      wird der Zugang automatisch aktiviert – ohne Freigabe-Schritt. Der vollständige Name wird
+      im Pencil Selling als Shop-Agent übernommen.
     </div>
 
-    <div style="margin-bottom:16px">
-      <button class="btn" onclick="openNewEmployeeDialog()">👤 Neuen Mitarbeiter anlegen</button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px">
+      <div>
+        <label class="flabel" for="newFirst">Vorname</label>
+        <input id="newFirst" type="text" autocomplete="off" placeholder="z. B. Max">
+      </div>
+      <div>
+        <label class="flabel" for="newLast">Nachname</label>
+        <input id="newLast" type="text" autocomplete="off" placeholder="z. B. Mustermann">
+      </div>
+      <div>
+        <label class="flabel" for="newEmail">E-Mail-Adresse</label>
+        <input id="newEmail" type="email" autocomplete="off" placeholder="name@hetec-gmbh.de">
+      </div>
+      <div>
+        <label class="flabel" for="newShop">Hauptshop</label>
+        <select id="newShop" style="width:100%;padding:13px 15px;font-size:14px;border:2px solid #e2e8f0;border-radius:12px">
+          <option value="">— Shop auswählen —</option>
+        </select>
+      </div>
+      <div>
+        <label class="flabel" for="newRole">Rolle</label>
+        <select id="newRole" style="width:100%;padding:13px 15px;font-size:14px;border:2px solid #e2e8f0;border-radius:12px">
+          <option value="verkaeufer">Verkäufer</option>
+          <option value="filialleiter">Filialleiter</option>
+        </select>
+      </div>
+      <div>
+        <label class="flabel" for="newPassword">Zufallspasswort · 6 Zeichen</label>
+        <div style="display:flex;gap:7px">
+          <input id="newPassword" type="text" readonly autocomplete="off" style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-weight:900;letter-spacing:.12em;background:#f8fafc">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="generateRandomPassword()" title="Neues Passwort erzeugen">↻ Neu</button>
+        </div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:5px">Enthält 1 Großbuchstaben, 1 Zahl und „!“.</div>
+      </div>
     </div>
 
-    <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="font-size:13px;font-weight:900;color:#0f172a">👥 Nutzer <span id="usrCount" style="color:#94a3b8;font-weight:700"></span></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn" onclick="prepareEmployeeAccess()">✅ Zugang vorbereiten</button>
+      <button class="btn btn-ghost" onclick="copyEmployeeCredentials()">📋 Zugangsdaten kopieren</button>
+      <a class="btn btn-ghost" href="https://console.firebase.google.com/project/beta-pencil-selling/authentication/users" target="_blank" rel="noopener">🔐 Firebase Authentication öffnen</a>
+      <button class="btn btn-ghost" onclick="copyPencilLoginLink()">🔗 Nur Anmeldelink kopieren</button>
+    </div>
+    <div id="setupMsg"></div>
+    <div style="font-size:11.5px;color:#64748b;line-height:1.5;margin-bottom:16px">
+      Das Passwort wird aus Sicherheitsgründen nicht in Firestore gespeichert. Deshalb die
+      Zugangsdaten direkt kopieren, bevor du die Seite schließt oder ein neues Passwort erzeugst.
+    </div>
+
+    <div style="border-top:1px solid #e2e8f0;padding-top:16px;margin-top:4px">
+      <div style="font-size:13px;font-weight:900;color:#0f172a;margin-bottom:9px">🧾 Vorbereitete Zugänge <span id="setupCount" style="color:#94a3b8;font-weight:700"></span></div>
+      <div id="setupList"><div class="empty">Lade…</div></div>
+    </div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:900;color:#0f172a">👥 Aktive Nutzer <span id="usrCount" style="color:#94a3b8;font-weight:700"></span></div>
       <div style="flex:1"></div>
       <select id="usrTab" onchange="renderUsers()">
         <option value="all">Alle</option>
-        <option value="approved">Freigegeben</option>
+        <option value="active">Aktiv</option>
         <option value="blocked">Gesperrt</option>
-        <option value="pending">Alt: wartet auf Freigabe</option>
-        <option value="rejected">Alt: Abgelehnt</option>
       </select>
       <button class="btn btn-ghost btn-sm" onclick="loadUsers()">↻ Aktualisieren</button>
     </div>
@@ -306,104 +352,6 @@
 
 </div>
 
-<!-- ══ EIGENES TESTKONTO VOLLSTÄNDIG LÖSCHEN ══ -->
-<div id="ownAccountDeleteModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.68);align-items:center;justify-content:center;padding:18px">
-  <div style="width:100%;max-width:470px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.38)">
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:13px;background:#fef2f2;font-size:23px;flex-shrink:0">🗑️</div>
-      <div>
-        <div style="font-size:17px;font-weight:900;color:#991b1b">Eigenes Testkonto vollständig löschen</div>
-        <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-top:4px">Gelöscht werden ausschließlich dein Firebase-Login und dein Benutzerprofil <b>users/{uid}</b>. Statistiken, Angebote und andere Nutzer bleiben erhalten.</div>
-      </div>
-    </div>
-
-    <div style="padding:12px 14px;border-radius:12px;background:#fff7ed;border:1.5px solid #fed7aa;color:#9a3412;font-size:12.5px;line-height:1.5;margin-bottom:15px">
-      <b>Achtung:</b> Danach wirst du sofort abgemeldet. Für den nächsten Test musst du dich mit <b>d.dasilva@hetec-gmbh.de</b> neu registrieren und die E-Mail-Adresse erneut bestätigen.
-    </div>
-
-    <label class="flabel" for="ownDeletePassword">Aktuelles Firebase-Passwort</label>
-    <input type="password" id="ownDeletePassword" placeholder="Passwort eingeben" autocomplete="current-password">
-
-    <label class="flabel" for="ownDeleteConfirm" style="margin-top:13px">Zur Bestätigung LÖSCHEN eingeben</label>
-    <input type="text" id="ownDeleteConfirm" placeholder="LÖSCHEN" autocomplete="off">
-
-    <div id="ownDeleteError" class="msg err" style="display:none;margin-top:13px"></div>
-
-    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;flex-wrap:wrap">
-      <button class="btn btn-ghost" id="ownDeleteCancelBtn" onclick="closeOwnAccountDeleteDialog()">Abbrechen</button>
-      <button class="btn btn-danger" id="ownDeleteConfirmBtn" onclick="deleteOwnAdminTestAccount()">🗑 Konto endgültig löschen</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MANUELLE BENUTZERANLAGE: Neuen Mitarbeiter anlegen ══ -->
-<div id="newEmployeeModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.68);align-items:center;justify-content:center;padding:18px">
-  <div style="width:100%;max-width:480px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.38);max-height:92vh;overflow:auto">
-    <div style="font-size:17px;font-weight:900;color:#0f172a;margin-bottom:4px">👤 Neuen Mitarbeiter anlegen</div>
-    <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-bottom:18px">Der Mitarbeiter erhält ein einmaliges temporäres Passwort und muss es beim ersten Login durch ein eigenes ersetzen.</div>
-
-    <label class="flabel">Anrede</label>
-    <select id="neAnrede" style="width:100%;margin-bottom:12px">
-      <option value="">Anrede wählen…</option>
-      <option value="Herr">Herr</option>
-      <option value="Frau">Frau</option>
-      <option value="Divers">Divers</option>
-    </select>
-
-    <label class="flabel" for="neVorname">Vorname</label>
-    <input type="text" id="neVorname" placeholder="Vorname (optional)" style="margin-bottom:12px">
-
-    <label class="flabel" for="neNachname">Nachname</label>
-    <input type="text" id="neNachname" placeholder="Nachname" style="margin-bottom:12px">
-
-    <label class="flabel" for="neEmail">Firmen-E-Mail-Adresse</label>
-    <input type="text" id="neEmail" placeholder="vorname.nachname@hetec-gmbh.de" style="margin-bottom:12px">
-
-    <label class="flabel">Hauptshop</label>
-    <select id="neShop" style="width:100%;margin-bottom:12px"></select>
-
-    <label class="flabel">Rolle</label>
-    <select id="neRole" style="width:100%;margin-bottom:12px">
-      <option value="verkaeufer" selected>Verkäufer</option>
-      <option value="filialleiter">Filialleiter</option>
-    </select>
-
-    <label class="flabel">Zusätzliche Standorte (optional)</label>
-    <div id="neExtraShops" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px"></div>
-
-    <div id="neErr" class="msg err" style="display:none;margin-top:10px"></div>
-
-    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;flex-wrap:wrap">
-      <button class="btn btn-ghost" id="neCancelBtn" onclick="closeNewEmployeeDialog()">Abbrechen</button>
-      <button class="btn" id="neSubmitBtn" onclick="submitNewEmployee()">Mitarbeiter anlegen</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MANUELLE BENUTZERANLAGE: Zugangsdaten einmalig anzeigen (Neuanlage & Passwort-Reset) ══ -->
-<div id="newEmployeeSuccessModal" style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(15,23,42,.68);align-items:center;justify-content:center;padding:18px">
-  <div style="width:100%;max-width:440px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.38)">
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:13px;background:#f0fdf4;font-size:23px;flex-shrink:0">✅</div>
-      <div>
-        <div style="font-size:16px;font-weight:900;color:#15803d" id="neResultTitle">Mitarbeiter wurde erfolgreich angelegt</div>
-        <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-top:4px">Dieses Passwort wird nur jetzt einmal angezeigt und danach nirgendwo gespeichert.</div>
-      </div>
-    </div>
-
-    <label class="flabel">E-Mail</label>
-    <div style="padding:10px 13px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:12px;word-break:break-all" id="neResultEmail"></div>
-
-    <label class="flabel">Temporäres Passwort</label>
-    <div style="padding:10px 13px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;font-size:15px;font-weight:900;letter-spacing:.03em;color:#1d4ed8;margin-bottom:16px;word-break:break-all" id="neResultPw"></div>
-
-    <div style="display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="closeNewEmployeeSuccessDialog()">Schließen</button>
-      <button class="btn" onclick="copyNewEmployeeCredentials()">📋 Zugangsdaten kopieren</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ══ Firebase (dieselbe DB wie Pencil Selling) ══
 const FB = {
@@ -486,7 +434,7 @@ function start(){
   }
   loadNews();
   loadStats();
-  try { loadUsers(); } catch(e){}
+  try { fillNewEmployeeShopOptions(); generateRandomPassword(); loadUsers(); } catch(e){}
 }
 
 // ══ NEWS ══
@@ -1255,7 +1203,7 @@ function kpi(l, v, s, c){
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 
 // ══════════════════════════════════════════════════════════════════
-//  MITARBEITER & EINLADUNGEN  (Beta-Projekt: beta-pencil-selling)
+//  MITARBEITERVERWALTUNG  (Beta-Projekt: beta-pencil-selling)
 //  Separate Firebase-App 'auth' – getrennt von der Stats-DB oben.
 // ══════════════════════════════════════════════════════════════════
 const AUTH_FB = {
@@ -1284,11 +1232,6 @@ function getAuthDb(){
 function getAdminAuth(){
   return firebase.auth(getAuthApp());
 }
-// MANUELLE BENUTZERANLAGE: Region MUSS zur REGION-Konstante in functions/index.js passen.
-function getAuthFunctions(){
-  return getAuthApp().functions('europe-west3');
-}
-
 // Erstellt das Firestore-Profil des Administrators automatisch, falls es fehlt.
 // Firebase Authentication allein erzeugt kein Dokument in users/{uid}.
 async function ensureAdminProfile(){
@@ -1313,7 +1256,6 @@ async function ensureAdminProfile(){
       active: true,
       status: 'approved',
       isTestUser: false,
-      mustChangePassword: false,
       shopId: '',
       shop: 'Verwaltung / Alle Shops',
       createdAt: serverNow,
@@ -1327,7 +1269,6 @@ async function ensureAdminProfile(){
       active: true,
       status: 'approved',
       isTestUser: false,
-      mustChangePassword: false,
       updatedAt: serverNow
     };
     if (!data.name) patch.name = 'Diego da Silva';
@@ -1338,7 +1279,7 @@ async function ensureAdminProfile(){
   }
 }
 
-// Die bestehende Firebase-Sitzung erst jetzt prüfen, nachdem AUTH_FB definiert ist.
+// Bestehende Firebase-Administratorsitzung wiederherstellen.
 function restoreAdminSession(){
   let marked = false;
   try { marked = sessionStorage.getItem('hetec_admin') === '1'; } catch(e){}
@@ -1385,45 +1326,254 @@ function fmtWhen(ts){
   return '—';
 }
 
-// ── Mitarbeiter-Liste (nur noch users – keine Einladungen mehr) ──
-async function loadUsers(){
-  const box = document.getElementById('usrList');
-  box.innerHTML = '<div class="empty">Lade…</div>';
+// ── Einfacher Zugangsvorbereiter ohne Cloud Functions ──
+// Das Auth-Konto selbst wird weiterhin manuell in Firebase Authentication
+// angelegt. Hier werden Name, Shop und Rolle sicher für den ersten Login
+// vorbereitet. Das Klartext-Passwort wird bewusst NICHT gespeichert.
+function fillNewEmployeeShopOptions(){
+  const sel = document.getElementById('newShop');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Shop auswählen —</option>' + Object.keys(SHOP_NAMES).map(id =>
+    '<option value="'+id+'">'+SHOP_NAMES[id]+'</option>'
+  ).join('');
+  if (current && SHOP_NAMES[current]) sel.value = current;
+}
+
+function securePick(chars){
+  if (window.crypto && window.crypto.getRandomValues){
+    const a = new Uint32Array(1);
+    window.crypto.getRandomValues(a);
+    return chars[a[0] % chars.length];
+  }
+  return chars[Math.floor(Math.random() * chars.length)];
+}
+
+function secureShuffle(chars){
+  const a = chars.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    let j;
+    if (window.crypto && window.crypto.getRandomValues){
+      const n = new Uint32Array(1);
+      window.crypto.getRandomValues(n);
+      j = n[0] % (i + 1);
+    } else {
+      j = Math.floor(Math.random() * (i + 1));
+    }
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.join('');
+}
+
+function generateRandomPassword(){
+  // Genau 6 Zeichen: 3 Kleinbuchstaben, 1 Großbuchstabe, 1 Zahl, 1 leichtes Sonderzeichen.
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  const digits = '23456789';
+  const chars = [securePick(lower), securePick(lower), securePick(lower), securePick(upper), securePick(digits), '!'];
+  const pw = secureShuffle(chars);
+  const el = document.getElementById('newPassword');
+  if (el) el.value = pw;
+  return pw;
+}
+
+function readNewEmployeeForm(){
+  const vorname = (document.getElementById('newFirst').value || '').trim();
+  const nachname = (document.getElementById('newLast').value || '').trim();
+  const email = (document.getElementById('newEmail').value || '').trim().toLowerCase();
+  const shopId = document.getElementById('newShop').value || '';
+  const role = document.getElementById('newRole').value || 'verkaeufer';
+  const password = (document.getElementById('newPassword').value || '').trim();
+  return {
+    vorname,
+    nachname,
+    name: (vorname + ' ' + nachname).trim(),
+    email,
+    shopId,
+    shop: shopId ? (SHOP_NAMES[shopId] || '') : '',
+    role,
+    password
+  };
+}
+
+function validGeneratedPassword(pw){
+  return typeof pw === 'string' && pw.length === 6 && /[A-Z]/.test(pw) && /[0-9]/.test(pw) && pw.includes('!');
+}
+
+function showSetupMessage(text, ok){
+  const box = document.getElementById('setupMsg');
+  if (!box) return;
+  box.className = 'msg ' + (ok ? 'ok' : 'err');
+  box.textContent = text;
+}
+
+async function prepareEmployeeAccess(){
+  const d = readNewEmployeeForm();
+  if (!d.vorname || !d.nachname) return showSetupMessage('Bitte Vorname und Nachname eingeben.', false);
+  if (!/^[^\s@]+@hetec-gmbh\.de$/i.test(d.email)) return showSetupMessage('Bitte eine gültige @hetec-gmbh.de-E-Mail-Adresse eingeben.', false);
+  if (!d.shopId) return showSetupMessage('Bitte einen Hauptshop auswählen.', false);
+  if (!validGeneratedPassword(d.password)) {
+    generateRandomPassword();
+    return showSetupMessage('Das Passwort wurde neu erzeugt. Bitte noch einmal auf „Zugang vorbereiten“ klicken.', false);
+  }
+
   try {
-    await ensureAdminProfile();
-    const snap = await getAuthDb().collection('users').get();
-    window.__usrRows = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
-    renderUsers();
+    const db = getAuthDb();
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+    const existing = await db.collection('users').where('email', '==', d.email).limit(1).get();
+
+    if (!existing.empty){
+      const ref = existing.docs[0].ref;
+      await ref.set({
+        email: d.email,
+        vorname: d.vorname,
+        nachname: d.nachname,
+        name: d.name,
+        role: d.role,
+        active: true,
+        status: 'approved',
+        shopId: d.shopId,
+        shop: d.shop,
+        updatedAt: now
+      }, { merge: true });
+      await db.collection('user_setups').doc(d.email).delete().catch(() => {});
+      showSetupMessage('Der bestehende Mitarbeiter wurde sofort aktualisiert und aktiviert. Das Passwort musst du nur ändern, falls du es auch in Firebase Authentication neu setzt.', true);
+    } else {
+      await db.collection('user_setups').doc(d.email).set({
+        email: d.email,
+        vorname: d.vorname,
+        nachname: d.nachname,
+        name: d.name,
+        role: d.role,
+        active: true,
+        status: 'approved',
+        shopId: d.shopId,
+        shop: d.shop,
+        extraShopIds: [],
+        isTestUser: false,
+        createdAt: now,
+        updatedAt: now
+      });
+      showSetupMessage('Zugang vorbereitet. Jetzt Zugangsdaten kopieren und den Benutzer mit derselben E-Mail und demselben Passwort in Firebase Authentication anlegen.', true);
+    }
+    await loadUsers();
   } catch(e){
-    box.innerHTML = '<div class="empty">Fehler: '+esc(e.message||'')+'</div>';
+    showSetupMessage('Fehler: ' + (e && e.message || e), false);
   }
 }
 
-function usrBadge(status){
-  const m = {
-    pending:  ['Alt: Neu','#fef9c3','#a16207'],
-    approved: ['Freigegeben','#dcfce7','#15803d'],
-    rejected: ['Alt: Abgelehnt','#fee2e2','#b91c1c'],
-    blocked:  ['Gesperrt','#fee2e2','#b91c1c'],
-    gesperrt: ['Gesperrt','#fee2e2','#b91c1c']
-  }[status] || ['—','#f1f5f9','#64748b'];
-  return '<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:'+m[1]+';color:'+m[2]+';margin-right:6px">'+m[0]+'</span>';
+async function copyTextSafe(text, successText){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    try {
+      await navigator.clipboard.writeText(text);
+      alert(successText || 'Kopiert.');
+      return;
+    } catch(e){}
+  }
+  prompt('Bitte markieren und kopieren:', text);
+}
+
+function copyEmployeeCredentials(){
+  const d = readNewEmployeeForm();
+  if (!d.vorname || !d.nachname || !d.email || !d.shopId || !validGeneratedPassword(d.password)) {
+    return showSetupMessage('Bitte zuerst alle Felder ausfüllen und ein gültiges Passwort erzeugen.', false);
+  }
+  const text = [
+    'Pencil Selling Zugang',
+    'Name: ' + d.name,
+    'Shop: ' + d.shop,
+    'Link: ' + PENCIL_SELLING_URL,
+    'E-Mail: ' + d.email,
+    'Passwort: ' + d.password
+  ].join('\n');
+  copyTextSafe(text, 'Zugangsdaten wurden kopiert.');
+}
+
+function renderPreparedSetups(){
+  const rows = (window.__setupRows || []).slice().sort((a,b) => String(a.name || a.email || '').localeCompare(String(b.name || b.email || ''), 'de'));
+  const count = document.getElementById('setupCount');
+  if (count) count.textContent = '(' + rows.length + ')';
+  const box = document.getElementById('setupList');
+  if (!box) return;
+  if (!rows.length){
+    box.innerHTML = '<div class="empty">Keine vorbereiteten Zugänge. Nach dem ersten Login verschwindet ein vorbereiteter Eintrag automatisch.</div>';
+    return;
+  }
+  box.innerHTML = rows.map(r =>
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 12px;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:8px;background:#f8fafc">' +
+      '<div style="flex:1;min-width:210px">' +
+        '<div style="font-size:13.5px;font-weight:900">' + esc(r.name || ((r.vorname||'')+' '+(r.nachname||'')).trim() || '—') + '</div>' +
+        '<div style="font-size:12px;color:#64748b">' + esc(r.email || '') + ' · ' + esc(r.shop || SHOP_NAMES[r.shopId] || 'Kein Shop') + '</div>' +
+      '</div>' +
+      '<span style="font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8">Für Authentication vorbereitet</span>' +
+      '<button class="btn btn-sm btn-danger" onclick="deletePreparedSetup(\'' + String(r.email || r.id).replace(/'/g, "\\'") + '\')">Verwerfen</button>' +
+    '</div>'
+  ).join('');
+}
+
+async function deletePreparedSetup(email){
+  if (!confirm('Vorbereiteten Zugang für „' + email + '“ wirklich verwerfen?')) return;
+  try {
+    await getAuthDb().collection('user_setups').doc(String(email || '').toLowerCase()).delete();
+    await loadUsers();
+  } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+}
+
+// ── Mitarbeiter-Liste (nur noch users – keine Einladungen mehr) ──
+async function loadUsers(){
+  const box = document.getElementById('usrList');
+  const setupBox = document.getElementById('setupList');
+  if (box) box.innerHTML = '<div class="empty">Lade…</div>';
+  if (setupBox) setupBox.innerHTML = '<div class="empty">Lade…</div>';
+  try {
+    await ensureAdminProfile();
+    const results = await Promise.all([
+      getAuthDb().collection('users').get(),
+      getAuthDb().collection('user_setups').get()
+    ]);
+    window.__usrRows = results[0].docs.map(d => Object.assign({ id: d.id }, d.data()));
+    window.__setupRows = results[1].docs.map(d => Object.assign({ id: d.id }, d.data()));
+    renderPreparedSetups();
+    renderUsers();
+  } catch(e){
+    if (box) box.innerHTML = '<div class="empty">Fehler: '+esc(e.message||'')+'</div>';
+    if (setupBox) setupBox.innerHTML = '<div class="empty">Fehler: '+esc(e.message||'')+'</div>';
+  }
+}
+
+function usrBadge(row){
+  let label = 'Inaktiv', bg = '#f1f5f9', color = '#64748b';
+  const adminRow = row.role === 'admin' || (row.email || '').toLowerCase() === PS_ADMIN_EMAIL.toLowerCase();
+  if (adminRow) {
+    label = 'Aktiv'; bg = '#dbeafe'; color = '#1d4ed8';
+  } else if (row.status === 'blocked' || row.status === 'gesperrt' || row.status === 'deleted') {
+    label = 'Gesperrt'; bg = '#fee2e2'; color = '#b91c1c';
+  } else if (row.active === true && row.status === 'approved' && row.shopId) {
+    label = 'Aktiv'; bg = '#dcfce7'; color = '#15803d';
+  } else if (!row.shopId) {
+    label = 'Kein Shop zugewiesen'; bg = '#ffedd5'; color = '#9a3412';
+  }
+  return '<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:'+bg+';color:'+color+';margin-right:6px">'+label+'</span>';
 }
 
 function renderUsers(){
-  const rows = window.__usrRows || [];
+  const rows = (window.__usrRows || []).filter(r => r.status !== 'deleted');
   const tab = (document.getElementById('usrTab')||{}).value || 'all';
   const filtered = rows
     .filter(r => {
+      const adminRow = r.role === 'admin' || (r.email || '').toLowerCase() === PS_ADMIN_EMAIL.toLowerCase();
+      const blocked = r.status === 'blocked' || r.status === 'gesperrt';
+      const active = adminRow || (r.active === true && r.status === 'approved' && !!r.shopId && !blocked);
       if (tab === 'all') return true;
-      if (tab === 'blocked') return r.status === 'blocked' || r.status === 'gesperrt';
-      return r.status === tab;
+      if (tab === 'active') return active;
+      if (tab === 'blocked') return blocked;
+      return true;
     })
     .sort((a,b) => {
-      const rank = s => s==='pending' ? 0 : 1;
-      const d = rank(a.status) - rank(b.status);
+      const rank = r => (r.status === 'blocked' || r.status === 'gesperrt') ? 3 : (r.active === true && r.status === 'approved' && r.shopId ? 1 : 2);
+      const d = rank(a) - rank(b);
       if (d) return d;
-      return (b.createdAt||0) - (a.createdAt||0);
+      return String(a.email || '').localeCompare(String(b.email || ''), 'de');
     });
 
   document.getElementById('usrCount').textContent = '(' + filtered.length + ')';
@@ -1434,16 +1584,13 @@ function renderUsers(){
   filtered.forEach(r => {
     const isProtectedAdmin = (r.email || '').toLowerCase() === PS_ADMIN_EMAIL.toLowerCase();
     const name = esc(r.name || ((r.vorname||'')+' '+(r.nachname||'')).trim()) || esc(r.email||'');
-    const shopOpts = Object.keys(SHOP_NAMES).map(id =>
+    const shopOpts = '<option value=""'+(!r.shopId?' selected':'')+'>— Shop auswählen —</option>' + Object.keys(SHOP_NAMES).map(id =>
       '<option value="'+id+'"'+(id===r.shopId?' selected':'')+'>'+SHOP_NAMES[id]+'</option>'
     ).join('');
-    const roleOpts = Object.keys(ROLE_NAMES).map(id =>
+    const roleOpts = Object.keys(ROLE_NAMES).filter(id => id !== 'admin').map(id =>
       '<option value="'+id+'"'+(id===r.role?' selected':'')+'>'+ROLE_NAMES[id]+'</option>'
     ).join('');
 
-    // Weitere Standorte: standardmäßig ist jeder Mitarbeiter stationär auf
-    // seinem Heimatshop (shopId) und kann im Pencil Selling nicht wechseln.
-    // Erst ein Eintrag in extraShopIds gibt zusätzliche Standorte frei.
     const extraIds = Array.isArray(r.extraShopIds) ? r.extraShopIds : [];
     const extraN = extraIds.length;
     const extraBadgeTxt = extraN ? '🌍 '+extraN+' weitere'+(extraN===1?'r':'')+' Standort'+(extraN===1?'':'e') : '🔒 Stationär';
@@ -1454,12 +1601,22 @@ function renderUsers(){
       + SHOP_NAMES[id] + '</label>'
     ).join('');
 
+    const blocked = r.status === 'blocked' || r.status === 'gesperrt';
+    const active = r.active === true && r.status === 'approved' && !!r.shopId && !blocked;
+    const actionButton = blocked
+      ? '<button class="btn btn-sm" onclick="usrUnlock(\'' + r.id + '\')">🔓 Entsperren</button>'
+      : (active
+          ? '<button class="btn btn-sm btn-danger" onclick="usrLock(\'' + r.id + '\')">🔒 Sperren</button>'
+          : (r.shopId
+              ? '<button class="btn btn-sm" onclick="usrUnlock(\'' + r.id + '\')">✅ Aktivieren</button>'
+              : '<span style="font-size:11.5px;font-weight:800;color:#9a3412;padding:7px 10px;border-radius:9px;background:#ffedd5">Shop auswählen</span>'));
+
     h += '<div style="border:1px solid '+(isProtectedAdmin?'#bfdbfe':'#e2e8f0')+';background:'+(isProtectedAdmin?'#eff6ff':'#fff')+';border-radius:12px;padding:13px 14px;margin-bottom:10px">'
       + '<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">'
       + '<div style="min-width:200px">'
       +   '<div style="font-weight:800;font-size:14px;color:#0f172a">'+(name||'–')+'</div>'
       +   '<div style="font-size:12.5px;color:#475569;margin:2px 0 6px">'+esc(r.email||'—')+'</div>'
-      +   '<div>'+usrBadge(r.status)+(isProtectedAdmin?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8">Administrator · geschützt</span>':(r.isTestUser?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9">Testnutzer</span>':''))+'</div>'
+      +   '<div>'+usrBadge(r)+(isProtectedAdmin?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8">Administrator · geschützt</span>':(r.isTestUser?'<span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#6d28d9">Testnutzer</span>':''))+'</div>'
       +   '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Angelegt: '+fmtWhen(r.createdAt)+'</div>'
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
@@ -1471,16 +1628,17 @@ function renderUsers(){
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
       +   (isProtectedAdmin
-            ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Nicht deaktivierbar</span>' + '<button class="btn btn-sm btn-danger" onclick="openOwnAccountDeleteDialog()">🗑 Eigenes Testkonto löschen</button>'
-            : ((r.status==='blocked'||r.status==='gesperrt')
-                ? '<button class="btn btn-sm" onclick="usrUnlock(\'' + r.id + '\')">🔓 Entsperren</button>'
-                : '<button class="btn btn-sm btn-danger" onclick="usrLock(\'' + r.id + '\')">🔒 Sperren</button>')
-              + '<button class="btn btn-sm btn-ghost" onclick="usrResetPassword(\'' + r.id + '\')">🔑 Passwort zurücksetzen</button>'
-              + '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Löschen</button>')
+            ? '<span style="font-size:11.5px;font-weight:800;color:#1d4ed8;padding:7px 10px;border-radius:9px;background:#dbeafe">🔒 Geschützt</span>'
+            : actionButton + '<button class="btn btn-sm btn-danger" onclick="usrDelete(\'' + r.id + '\')">Entfernen</button>')
       + '</div>'
       + '</div>'
       + (isProtectedAdmin ? '' :
         '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9">'
+        + '<div style="display:grid;grid-template-columns:minmax(120px,1fr) minmax(140px,1fr) auto;gap:7px;align-items:end;margin-bottom:10px">'
+        +   '<div><label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;margin-bottom:4px">Vorname</label><input id="usrFirst-'+r.id+'" type="text" value="'+esc(r.vorname||'')+'" style="padding:8px 10px;font-size:12.5px"></div>'
+        +   '<div><label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;margin-bottom:4px">Nachname</label><input id="usrLast-'+r.id+'" type="text" value="'+esc(r.nachname||'')+'" style="padding:8px 10px;font-size:12.5px"></div>'
+        +   '<button class="btn btn-sm btn-ghost" onclick="usrSaveName(\''+r.id+'\')">Name speichern</button>'
+        + '</div>'
         + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
         +   '<span id="extraBadge-'+r.id+'" style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;'+extraBadgeCss+'">'+extraBadgeTxt+'</span>'
         +   '<button type="button" class="linklike" onclick="toggleExtraPanel(\''+r.id+'\')">Weitere Standorte verwalten</button>'
@@ -1492,39 +1650,53 @@ function renderUsers(){
   box.innerHTML = h;
 }
 
-// MANUELLE BENUTZERANLAGE: Sperren/Entsperren laufen über die Cloud Function
-// 'setEmployeeLock', damit dabei serverseitig auch die Firebase-Refresh-
-// Tokens widerrufen (und das Auth-Konto disabled/enabled) werden - das kann
-// ein reiner Firestore-Write vom Client aus nicht.
+// Sperren und Aktivieren ändern ausschließlich das Firestore-Profil.
+// Dadurch wird der Zugriff in index.html sofort beendet bzw. freigegeben.
 async function usrLock(uid){
   if (isAdminUid(uid)) return alert('Das Administrator-Konto kann nicht gesperrt werden.');
   const row = (window.__usrRows||[]).find(r => r.id===uid);
   const name = row ? (row.name || row.email || 'diesen Mitarbeiter') : 'diesen Mitarbeiter';
-  if (!confirm('„'+name+'" wirklich sperren?\n\nDer Zugang zum Pencil Selling wird sofort entzogen.')) return;
-  try { await getAuthFunctions().httpsCallable('setEmployeeLock')({ uid, action: 'block' }); await loadUsers(); }
-  catch(e){ alert('Fehler: ' + (e && e.message || e)); }
-}
-async function usrUnlock(uid){
-  if (isAdminUid(uid)) return;
-  try { await getAuthFunctions().httpsCallable('setEmployeeLock')({ uid, action: 'unblock' }); await loadUsers(); }
-  catch(e){ alert('Fehler: ' + (e && e.message || e)); }
-}
-// Erzeugt ein neues temporäres Passwort über die Cloud Function
-// 'resetEmployeePassword' und zeigt es einmalig im selben Erfolgs-Dialog wie
-// bei der Neuanlage an. mustChangePassword wird dabei serverseitig wieder
-// auf true gesetzt - der Mitarbeiter muss beim nächsten Login ein eigenes
-// Passwort festlegen.
-async function usrResetPassword(uid){
-  if (isAdminUid(uid)) return;
-  const row = (window.__usrRows||[]).find(r => r.id===uid);
-  const name = row ? (row.name || row.email || 'diesen Mitarbeiter') : 'diesen Mitarbeiter';
-  if (!confirm('Neues temporäres Passwort für „'+name+'" erzeugen?\n\nDas bisherige Passwort wird sofort ungültig.')) return;
+  if (!confirm('„'+name+'“ wirklich sperren?\n\nDer Zugang zum Pencil Selling wird sofort entzogen.')) return;
   try {
-    const res = await getAuthFunctions().httpsCallable('resetEmployeePassword')({ uid });
-    showCredentialsResult('Passwort wurde zurückgesetzt', (row && row.email) || '', res.data.temporaryPassword);
+    await getAuthDb().collection('users').doc(uid).update({
+      active: false,
+      status: 'blocked',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     await loadUsers();
   } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
 }
+async function usrUnlock(uid){
+  if (isAdminUid(uid)) return;
+  const row = (window.__usrRows||[]).find(r => r.id===uid);
+  if (!row || !row.shopId) return alert('Bitte zuerst einen Hauptshop auswählen.');
+  try {
+    await getAuthDb().collection('users').doc(uid).update({
+      active: true,
+      status: 'approved',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await loadUsers();
+  } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+}
+async function usrSaveName(uid){
+  if (isAdminUid(uid)) return;
+  const vornameEl = document.getElementById('usrFirst-'+uid);
+  const nachnameEl = document.getElementById('usrLast-'+uid);
+  const vorname = (vornameEl && vornameEl.value || '').trim();
+  const nachname = (nachnameEl && nachnameEl.value || '').trim();
+  if (!vorname || !nachname) return alert('Bitte Vorname und Nachname eingeben.');
+  try {
+    await getAuthDb().collection('users').doc(uid).update({
+      vorname,
+      nachname,
+      name: (vorname + ' ' + nachname).trim(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await loadUsers();
+  } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+}
+
 async function usrSetShop(uid, shopId){
   if (isAdminUid(uid)) return;
   try {
@@ -1532,23 +1704,27 @@ async function usrSetShop(uid, shopId){
     const extraShopIds = Array.isArray(row && row.extraShopIds)
       ? row.extraShopIds.filter(id => id !== shopId)
       : [];
-    await getAuthDb().collection('users').doc(uid).update({
-      shopId: shopId,
-      shop: SHOP_NAMES[shopId] || '',
-      extraShopIds: extraShopIds
-    });
+    const patch = {
+      shopId: shopId || null,
+      shop: shopId ? (SHOP_NAMES[shopId] || '') : '',
+      extraShopIds: shopId ? extraShopIds : [],
+      active: !!shopId,
+      status: shopId ? 'approved' : 'inactive',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await getAuthDb().collection('users').doc(uid).update(patch);
     await loadUsers();
   }
   catch(e){ alert(e.message); }
 }
 async function usrSetRole(uid, role){
   if (isAdminUid(uid)) return;
-  try { await getAuthDb().collection('users').doc(uid).update({ role: role }); }
+  try { await getAuthDb().collection('users').doc(uid).update({ role: role, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); }
   catch(e){ alert(e.message); }
 }
 async function usrSetTest(uid, checked){
   if (isAdminUid(uid)) return;
-  try { await getAuthDb().collection('users').doc(uid).update({ isTestUser: !!checked }); }
+  try { await getAuthDb().collection('users').doc(uid).update({ isTestUser: !!checked, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); }
   catch(e){ alert(e.message); }
 }
 
@@ -1591,257 +1767,35 @@ function isAdminUid(uid){
 }
 
 
-let ownAccountDeleteBusy = false;
-
-function setOwnDeleteError(message){
-  const box = document.getElementById('ownDeleteError');
-  if (!box) return;
-  box.textContent = message || '';
-  box.style.display = message ? 'block' : 'none';
-}
-
-function openOwnAccountDeleteDialog(){
-  const user = getAdminAuth().currentUser;
-  if (!user || (user.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
-    alert('Die Löschfunktion ist ausschließlich für das aktuell angemeldete Administratorkonto verfügbar.');
-    return;
-  }
-  const modal = document.getElementById('ownAccountDeleteModal');
-  const pw = document.getElementById('ownDeletePassword');
-  const confirmInput = document.getElementById('ownDeleteConfirm');
-  if (pw) pw.value = '';
-  if (confirmInput) confirmInput.value = '';
-  setOwnDeleteError('');
-  if (modal) modal.style.display = 'flex';
-  setTimeout(() => { try { pw.focus(); } catch(e){} }, 50);
-}
-
-function closeOwnAccountDeleteDialog(){
-  if (ownAccountDeleteBusy) return;
-  const modal = document.getElementById('ownAccountDeleteModal');
-  if (modal) modal.style.display = 'none';
-  setOwnDeleteError('');
-}
-
-async function deleteOwnAdminTestAccount(){
-  if (ownAccountDeleteBusy) return;
-
-  const password = (document.getElementById('ownDeletePassword') || {}).value || '';
-  const confirmation = ((document.getElementById('ownDeleteConfirm') || {}).value || '').trim();
-  const btn = document.getElementById('ownDeleteConfirmBtn');
-  const cancelBtn = document.getElementById('ownDeleteCancelBtn');
-
-  if (!password){
-    setOwnDeleteError('Bitte dein aktuelles Firebase-Passwort eingeben.');
-    return;
-  }
-  if (confirmation.toLocaleUpperCase('de-DE') !== 'LÖSCHEN'){
-    setOwnDeleteError('Bitte zur Bestätigung exakt LÖSCHEN eingeben.');
-    return;
-  }
-
-  let currentUser = getAdminAuth().currentUser;
-  if (!currentUser || (currentUser.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
-    setOwnDeleteError('Das Administratorkonto ist nicht mehr angemeldet. Bitte die Seite neu laden.');
-    return;
-  }
-
-  ownAccountDeleteBusy = true;
-  setOwnDeleteError('');
-  if (btn){ btn.disabled = true; btn.textContent = 'Lösche Konto…'; }
-  if (cancelBtn) cancelBtn.disabled = true;
-
-  let profileRef = null;
-  let profileBackup = null;
-
-  try {
-    // Firebase verlangt für eine sicherheitskritische Kontolöschung eine frische Anmeldung.
-    const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
-    await currentUser.reauthenticateWithCredential(credential);
-
-    currentUser = getAdminAuth().currentUser;
-    if (!currentUser || (currentUser.email || '').toLowerCase() !== PS_ADMIN_EMAIL.toLowerCase()){
-      throw new Error('Sicherheitsprüfung des Administratorkontos fehlgeschlagen.');
-    }
-
-    const uid = currentUser.uid;
-    profileRef = getAuthDb().collection('users').doc(uid);
-    const profileSnap = await profileRef.get();
-    profileBackup = profileSnap.exists ? profileSnap.data() : null;
-
-    // Zuerst das Firestore-Profil entfernen.
-    if (profileSnap.exists) await profileRef.delete();
-
-    // Anschließend das eigene Firebase-Authentication-Konto löschen.
-    try {
-      await currentUser.delete();
-    } catch (authDeleteError){
-      // Falls Auth nicht gelöscht werden konnte, das Profil wiederherstellen,
-      // damit kein halbfertiger Zustand entsteht.
-      if (profileBackup && profileRef){
-        try { await profileRef.set(profileBackup); }
-        catch (restoreError){
-          console.error('Benutzerprofil konnte nach fehlgeschlagener Auth-Löschung nicht wiederhergestellt werden:', restoreError);
-        }
-      }
-      throw authDeleteError;
-    }
-
-    try {
-      sessionStorage.removeItem('hetec_admin');
-      sessionStorage.removeItem('hetec_admin_tab');
-    } catch(e){}
-
-    alert('Dein Testkonto wurde vollständig gelöscht. Du wirst jetzt abgemeldet und kannst dich anschließend erneut registrieren.');
-    location.reload();
-  } catch(e){
-    console.error('Eigenes Testkonto konnte nicht gelöscht werden:', e);
-    const code = e && e.code ? String(e.code) : '';
-    let message = 'Konto konnte nicht gelöscht werden: ' + (e && e.message ? e.message : 'Unbekannter Fehler');
-    if (code.includes('wrong-password') || code.includes('invalid-credential') || code.includes('invalid-login-credentials')){
-      message = 'Das eingegebene Passwort ist nicht korrekt.';
-    } else if (code.includes('too-many-requests')){
-      message = 'Zu viele Versuche. Bitte kurz warten und danach erneut probieren.';
-    } else if (code.includes('requires-recent-login')){
-      message = 'Die Anmeldung ist nicht mehr aktuell. Bitte abmelden, neu anmelden und die Löschung erneut starten.';
-    } else if (code.includes('permission-denied')){
-      message = 'Firestore verweigert die Löschung. Bitte die Regeln des Beta-Firebase-Projekts prüfen.';
-    }
-    setOwnDeleteError(message);
-  } finally {
-    ownAccountDeleteBusy = false;
-    if (btn){ btn.disabled = false; btn.textContent = '🗑 Konto endgültig löschen'; }
-    if (cancelBtn) cancelBtn.disabled = false;
-  }
-}
-
 async function usrDelete(uid){
-  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist geschützt und kann hier nicht gelöscht werden.');
+  if (isAdminUid(uid)) return alert('Das Administrator-Konto ist geschützt und kann hier nicht entfernt werden.');
   const row = (window.__usrRows||[]).find(r => r.id===uid);
   const name = row ? (row.name || ((row.vorname||'')+' '+(row.nachname||'')).trim() || row.email) : 'diesen Nutzer';
-  if (!confirm('Mitarbeiter „'+name+'\u201c wirklich dauerhaft löschen?\n\nDer Mitarbeiter verliert sofort seinen Zugang.\nDieser Vorgang kann nicht rückgängig gemacht werden.')) return;
-  try { await getAuthFunctions().httpsCallable('deleteEmployee')({ uid }); await loadUsers(); }
-  catch(e){ alert('Fehler: ' + (e && e.message || e)); }
+  if (!confirm('Mitarbeiter „'+name+'“ wirklich aus der Verwaltung entfernen?\n\nDer Zugriff wird sofort gesperrt und der Eintrag verschwindet aus der Liste.\nBitte lösche anschließend das zugehörige Konto zusätzlich unter Firebase → Authentication → Users.')) return;
+  try {
+    const db = getAuthDb();
+    await db.collection('users').doc(uid).update({
+      active: false,
+      status: 'deleted',
+      deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    if (row && row.email) await db.collection('user_setups').doc(String(row.email).toLowerCase()).delete().catch(() => {});
+    await loadUsers();
+  } catch(e){ alert('Fehler: ' + (e && e.message || e)); }
 }
 
-// Shop-Vorschläge aus vorhandenen Beratungsdaten füllen (sobald Stats geladen sind)
-// ══════════════════════════════════════════════════════════════════
-//  MANUELLE BENUTZERANLAGE: Neuen Mitarbeiter anlegen (Dialog + Cloud
-//  Function 'createEmployee') und gemeinsame Zugangsdaten-Anzeige, die auch
-//  von usrResetPassword() weiterverwendet wird.
-// ══════════════════════════════════════════════════════════════════
-
-// Beste Schätzung der Anmeldeseite: gleiches Verzeichnis wie Admin.html,
-// Dateiname 'index.html'. Falls Pencil Selling unter einer anderen URL
-// liegt, hier einfach eine feste URL eintragen, z.B.:
-// const PENCIL_SELLING_URL = 'https://hetec-it.github.io/PS-Dashboard/';
+// Anmeldeseite liegt im gleichen GitHub-Pages-Verzeichnis wie Admin.html.
 const PENCIL_SELLING_URL = new URL('index.html', location.href).toString();
 
-let newEmployeeBusy = false;
-let lastCredentials = null; // SICHERHEIT: nur im Speicher, nie in Firestore/localStorage/Logs
-
-function openNewEmployeeDialog(){
-  document.getElementById('neAnrede').value = '';
-  document.getElementById('neVorname').value = '';
-  document.getElementById('neNachname').value = '';
-  document.getElementById('neEmail').value = '';
-  document.getElementById('neRole').value = 'verkaeufer';
-  const shopSel = document.getElementById('neShop');
-  shopSel.innerHTML = Object.keys(SHOP_NAMES).map(id => '<option value="'+id+'">'+SHOP_NAMES[id]+'</option>').join('');
-  refreshNeExtraShops();
-  shopSel.onchange = refreshNeExtraShops;
-  document.getElementById('neErr').style.display = 'none';
-  const modal = document.getElementById('newEmployeeModal');
-  modal.style.display = 'flex';
-  setTimeout(() => { try { document.getElementById('neNachname').focus(); } catch(e){} }, 50);
-}
-function refreshNeExtraShops(){
-  const mainShop = document.getElementById('neShop').value;
-  const box = document.getElementById('neExtraShops');
-  box.innerHTML = Object.keys(SHOP_NAMES).filter(id => id !== mainShop).map(id =>
-    '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#334155;background:#f8fafc;border:1.5px solid #e2e8f0;padding:6px 10px;border-radius:9px;cursor:pointer">'
-    + '<input type="checkbox" class="ne-extra-shop" value="'+id+'" style="width:14px;height:14px;cursor:pointer">'
-    + SHOP_NAMES[id] + '</label>'
-  ).join('');
-}
-function closeNewEmployeeDialog(){
-  if (newEmployeeBusy) return;
-  document.getElementById('newEmployeeModal').style.display = 'none';
-}
-
-async function submitNewEmployee(){
-  if (newEmployeeBusy) return;
-  const anrede = document.getElementById('neAnrede').value;
-  const vorname = document.getElementById('neVorname').value.trim();
-  const nachname = document.getElementById('neNachname').value.trim();
-  const email = document.getElementById('neEmail').value.trim().toLowerCase();
-  const shopId = document.getElementById('neShop').value;
-  const role = document.getElementById('neRole').value;
-  const extraShopIds = Array.from(document.querySelectorAll('.ne-extra-shop:checked')).map(el => el.value);
-  const errBox = document.getElementById('neErr');
-  errBox.style.display = 'none';
-
-  if (!nachname || !email || !shopId){
-    errBox.textContent = 'Bitte mindestens Nachname, E-Mail und Hauptshop ausfüllen.';
-    errBox.style.display = 'block';
-    return;
-  }
-  if (!/@hetec-gmbh\.de$/i.test(email)){
-    errBox.textContent = 'Nur E-Mail-Adressen mit @hetec-gmbh.de erlaubt.';
-    errBox.style.display = 'block';
-    return;
-  }
-
-  newEmployeeBusy = true;
-  const btn = document.getElementById('neSubmitBtn');
-  const cancelBtn = document.getElementById('neCancelBtn');
-  btn.disabled = true; btn.textContent = 'Lege an…';
-  if (cancelBtn) cancelBtn.disabled = true;
-
-  try {
-    const res = await getAuthFunctions().httpsCallable('createEmployee')({
-      anrede, vorname, nachname, email,
-      shopId, shopName: SHOP_NAMES[shopId] || '',
-      extraShopIds, role
-    });
-    document.getElementById('newEmployeeModal').style.display = 'none';
-    showCredentialsResult('Mitarbeiter wurde erfolgreich angelegt', res.data.email, res.data.temporaryPassword);
-    await loadUsers();
-  } catch(e){
-    errBox.textContent = 'Fehler: ' + (e && e.message || e);
-    errBox.style.display = 'block';
-  } finally {
-    newEmployeeBusy = false;
-    btn.disabled = false; btn.textContent = 'Mitarbeiter anlegen';
-    if (cancelBtn) cancelBtn.disabled = false;
-  }
-}
-
-// Gemeinsame Anzeige für Neuanlage (createEmployee) und Passwort-Reset
-// (resetEmployeePassword) - das temporäre Passwort wird nur dieses eine Mal
-// angezeigt und ist nach dem Schließen des Fensters nicht mehr abrufbar.
-function showCredentialsResult(title, email, temporaryPassword){
-  lastCredentials = { email: email || '', password: temporaryPassword || '' };
-  document.getElementById('neResultTitle').textContent = title;
-  document.getElementById('neResultEmail').textContent = email || '—';
-  document.getElementById('neResultPw').textContent = temporaryPassword || '—';
-  document.getElementById('newEmployeeSuccessModal').style.display = 'flex';
-}
-function closeNewEmployeeSuccessDialog(){
-  lastCredentials = null; // SICHERHEIT: Passwort nach dem Schließen nicht mehr abrufbar
-  document.getElementById('neResultPw').textContent = '';
-  document.getElementById('newEmployeeSuccessModal').style.display = 'none';
-}
-function copyNewEmployeeCredentials(){
-  if (!lastCredentials) return;
-  const text = 'Hallo,\n\ndein Zugang zum Pencil Selling wurde eingerichtet.\n\nAnmeldeseite:\n' + PENCIL_SELLING_URL +
-    '\n\nE-Mail:\n' + lastCredentials.email + '\n\nTemporäres Passwort:\n' + lastCredentials.password +
-    '\n\nBeim ersten Login musst du ein persönliches Passwort festlegen.';
+function copyPencilLoginLink(){
+  const text = PENCIL_SELLING_URL;
   if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(() => alert('Zugangsdaten wurden in die Zwischenablage kopiert.'))
-      .catch(() => prompt('Kopieren fehlgeschlagen - bitte manuell markieren und kopieren:', text));
+    navigator.clipboard.writeText(text)
+      .then(() => alert('Anmeldelink wurde kopiert.'))
+      .catch(() => prompt('Bitte den Link markieren und kopieren:', text));
   } else {
-    prompt('Bitte manuell markieren und kopieren:', text);
+    prompt('Bitte den Link markieren und kopieren:', text);
   }
 }
 
