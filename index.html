@@ -1538,19 +1538,39 @@ async function loadUsers(){
   const setupBox = document.getElementById('setupList');
   if (box) box.innerHTML = '<div class="empty">Lade…</div>';
   if (setupBox) setupBox.innerHTML = '<div class="empty">Lade…</div>';
+
   try {
     await ensureAdminProfile();
-    const results = await Promise.all([
-      getAuthDb().collection('users').get(),
-      getAuthDb().collection('user_setups').get()
-    ]);
-    window.__usrRows = results[0].docs.map(d => Object.assign({ id: d.id }, d.data()));
-    window.__setupRows = results[1].docs.map(d => Object.assign({ id: d.id }, d.data()));
-    renderPreparedSetups();
-    renderUsers();
   } catch(e){
-    if (box) box.innerHTML = '<div class="empty">Fehler: '+esc(e.message||'')+'</div>';
-    if (setupBox) setupBox.innerHTML = '<div class="empty">Fehler: '+esc(e.message||'')+'</div>';
+    const msg = '<div class="empty">Administrator konnte nicht geprüft werden: ' + esc(e && e.message || e) + '</div>';
+    if (box) box.innerHTML = msg;
+    if (setupBox) setupBox.innerHTML = msg;
+    return;
+  }
+
+  // Beide Bereiche getrennt laden. So bleibt die Mitarbeiterliste sichtbar,
+  // selbst wenn nur die neue Collection user_setups noch nicht in den
+  // Firestore-Regeln des Projekts beta-pencil-selling freigeschaltet wurde.
+  const results = await Promise.allSettled([
+    getAuthDb().collection('users').get(),
+    getAuthDb().collection('user_setups').get()
+  ]);
+
+  if (results[0].status === 'fulfilled') {
+    window.__usrRows = results[0].value.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    renderUsers();
+  } else {
+    const e = results[0].reason;
+    if (box) box.innerHTML = '<div class="empty">Mitarbeiter konnten nicht geladen werden. Bitte die neue <b>firestore.rules</b> im Firebase-Projekt <b>beta-pencil-selling</b> veröffentlichen.<br><small>' + esc(e && e.message || e) + '</small></div>';
+  }
+
+  if (results[1].status === 'fulfilled') {
+    window.__setupRows = results[1].value.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    renderPreparedSetups();
+  } else {
+    const e = results[1].reason;
+    window.__setupRows = [];
+    if (setupBox) setupBox.innerHTML = '<div class="empty">Die Zugangsvorbereitung ist noch nicht freigeschaltet. Öffne in Firebase das Projekt <b>beta-pencil-selling</b> → Firestore Database → Rules, füge die mitgelieferte <b>firestore.rules</b> ein und klicke auf <b>Veröffentlichen</b>.<br><small>' + esc(e && e.message || e) + '</small></div>';
   }
 }
 
